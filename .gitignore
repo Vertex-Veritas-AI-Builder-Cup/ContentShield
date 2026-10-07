@@ -1,0 +1,38 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+service-account.json
+*-service-account.json
+credentials.json
+*.pem
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Build & logs
+*.log
+dist/
+build/
+*.tsbuildinfo
+
+# FAISS index (generated locally)
+backend/data/faiss_index/
