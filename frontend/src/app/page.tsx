@@ -1,36 +1,21 @@
-import { HealthCheck } from "@/components/HealthCheck";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="min-h-full bg-zinc-950 text-zinc-50">
-      <main className="mx-auto flex min-h-full max-w-4xl flex-col items-center justify-center px-6 py-16">
-        <div className="mb-2 text-sm font-medium tracking-widest text-violet-400 uppercase">
-          Vertex Veritas
-        </div>
-        <h1 className="mb-3 text-center text-4xl font-bold tracking-tight sm:text-5xl">
-          ContentShield
-        </h1>
-        <p className="mb-10 max-w-xl text-center text-zinc-400">
-          Real-time IP theft &amp; style clone detection for creators. Built for
-          H2S Google Cloud AI Builder Cup.
-        </p>
-
-        <div className="mb-10 flex flex-wrap justify-center gap-3">
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300">
-            Content Match
-          </span>
-          <span className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-1.5 text-sm text-fuchsia-300">
-            Style Match
-          </span>
-        </div>
-
-        <HealthCheck />
-
-        <p className="mt-10 text-center text-xs text-zinc-600">
-          Day 1 scaffold — backend health check wired. Upload &amp; matching
-          coming next.
-        </p>
-      </main>
-    </div>
+    <section className="pt-8">
+      <p className="text-sm text-[#f0b429]">YouTube Shorts · Reels · any file</p>
+      <h1 className="mt-3 max-w-md text-4xl font-medium leading-tight tracking-tight">
+        Your short. Then the copy.
+      </h1>
+      <p className="mt-4 max-w-sm text-[#9b958c]">
+        Save a few originals. Check one suspicious clip against them.
+      </p>
+      <Link
+        href="/catalog"
+        className="mt-8 inline-flex items-center rounded-full bg-[#f0b429] px-5 py-2.5 text-sm font-medium text-[#1a1408] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+      >
+        Add an original
+      </Link>
+    </section>
   );
 }

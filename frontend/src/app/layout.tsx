@@ -1,30 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const ui = IBM_Plex_Sans({
+  variable: "--font-ui",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "ContentShield | Vertex Veritas",
-  description:
-    "Real-time IP theft and style clone detection for creators.",
+  title: "ContentShield",
+  description: "Keep your shorts. Check the copies.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${ui.variable} h-full`}>
+      <body className="min-h-full antialiased">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
