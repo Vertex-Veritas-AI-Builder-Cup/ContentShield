@@ -1,0 +1,7 @@
+# ~/.codex/config.toml
+
+# Restricts file modification to your active directory, but runs standard tasks automatically
+sandbox_mode = "workspace-write"
+
+# Only prompts when Codex requires special permissions or high-risk access
+approval_policy = "on-request"

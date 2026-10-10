@@ -51,5 +51,3 @@ backend/data/faiss_index/
 *plan*.md
 *Plan*.md
 
-# Local Codex configuration
-.codex/
