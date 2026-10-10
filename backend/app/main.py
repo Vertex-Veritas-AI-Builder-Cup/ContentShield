@@ -27,6 +27,8 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
+    """Return a lightweight liveness response for the API service."""
+
     return {
         "status": "ok",
         "service": "contentshield-api",
@@ -36,6 +38,8 @@ def health():
 
 @app.get("/")
 def root():
+    """Return the API landing-page links used by local development."""
+
     return {
         "message": "ContentShield API",
         "docs": "/docs",

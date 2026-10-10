@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+/** Render the landing page and entry point for registering an original. */
 export default function Home() {
   return (
     <section className="pt-8">

@@ -20,10 +20,12 @@ const badge: Record<Verdict, { label: string; className: string }> = {
   low_risk: { label: "Low risk", className: "text-[#c8e6c4]" },
 };
 
+/** Convert a similarity score in the range 0–1 into a display percentage. */
 function percent(score: number) {
   return `${Math.round(score * 100)}%`;
 }
 
+/** Render the top match, ranked matches, verdict, and scan timing. */
 export function MatchResults({ result }: { result: ScanResult | null }) {
   if (!result) {
     return (
