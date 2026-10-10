@@ -16,6 +16,7 @@ const badge: Record<Verdict, { label: string; className: string }> = {
   low_risk: { label: "Low", className: "text-[#c8e6c4]" },
 };
 
+/** Format an API timestamp for the recent-scan history list. */
 function when(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -27,12 +28,14 @@ function when(value: string) {
   });
 }
 
+/** Fetch and render the most recent scan summaries from the backend. */
 export function ScanFeed({ refreshKey = 0 }: { refreshKey?: number }) {
   const [scans, setScans] = useState<ScanRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+  /** Fetch the current scan history and expose loading/error state to the view. */
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -49,6 +52,8 @@ export function ScanFeed({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [apiUrl]);
 
   useEffect(() => {
+    // Refresh the feed on mount and after a new scan is submitted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load updates state asynchronously after the request completes.
     void load();
   }, [load, refreshKey]);
 

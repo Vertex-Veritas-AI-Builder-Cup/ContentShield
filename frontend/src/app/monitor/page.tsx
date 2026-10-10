@@ -5,6 +5,7 @@ import { MatchResults, ScanResult } from "@/components/MatchResults";
 import { ScanFeed } from "@/components/ScanFeed";
 import { ScanUploadForm } from "@/components/ScanUploadForm";
 
+/** Render suspicious-video upload, match results, and scan history. */
 export default function CheckPage() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);

@@ -20,6 +20,8 @@ def _bounded_similarity(value: float) -> float:
 
 
 def _normalise(matrix: np.ndarray) -> np.ndarray:
+    """Normalize embedding rows so FAISS inner products equal cosine scores."""
+
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
     if np.any(norms <= 0) or not np.all(np.isfinite(norms)):
         raise SearchIndexError("Embedding vectors must have a non-zero finite norm")

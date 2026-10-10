@@ -16,6 +16,8 @@ class VideoEmbeddingError(RuntimeError):
 
 
 def _client() -> genai.Client:
+    """Create the Vertex AI client used for direct video embeddings."""
+
     settings = get_settings()
     return genai.Client(
         vertexai=True,
@@ -31,6 +33,8 @@ def _format_offset(seconds: float) -> str:
 
 
 def _embedding_values(response: Any) -> list[float]:
+    """Extract and validate the numeric embedding values from an SDK response."""
+
     embeddings = getattr(response, "embeddings", None) or []
     values = getattr(embeddings[0], "values", None) if embeddings else None
     if not values:

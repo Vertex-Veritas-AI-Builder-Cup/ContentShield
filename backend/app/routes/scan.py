@@ -28,6 +28,8 @@ ALLOWED_SUFFIXES = {".mp4", ".mov"}
 
 
 async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:
+    """Stream a suspicious upload to a temporary file within the size limit."""
+
     total = 0
     with target.open("wb") as output:
         while chunk := await upload.read(1024 * 1024):
@@ -40,6 +42,8 @@ async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:
 
 @router.post("/api/scan", status_code=status.HTTP_200_OK)
 async def scan_video(file: UploadFile = File(...)):
+    """Embed an uploaded suspicious video, search protected clips, and save the scan."""
+
     started = time.monotonic()
     try:
         settings = get_settings()
@@ -123,4 +127,6 @@ async def scan_video(file: UploadFile = File(...)):
 
 @router.get("/api/scans")
 def get_scans():
+    """Return persisted scan summaries for the monitor feed."""
+
     return {"scans": list_scans()}

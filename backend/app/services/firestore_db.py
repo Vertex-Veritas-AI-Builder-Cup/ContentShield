@@ -18,6 +18,8 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 def list_clips() -> list[dict]:
+    """Return the public catalog fields for protected clips, newest first."""
+
     try:
         from google.cloud import firestore
 
@@ -140,6 +142,8 @@ def list_clip_segment_embeddings() -> list[dict]:
 
 
 def get_clip(clip_id: str) -> dict | None:
+    """Fetch one protected clip's public metadata or return ``None`` if absent."""
+
     try:
         from google.cloud import firestore
 
@@ -185,6 +189,8 @@ def delete_clip(clip_id: str) -> bool:
 
 
 def _delete_stored_video(gcs_uri: str) -> None:
+    """Delete a stored original while treating an already-missing object as safe."""
+
     from google.api_core.exceptions import NotFound
 
     from app.services.storage import delete_gcs_uri
@@ -206,6 +212,8 @@ def _remove_from_search_index(clip_id: str) -> None:
 
 
 def list_scans() -> list[dict]:
+    """Return the latest persisted scan summaries in the frontend response shape."""
+
     try:
         from google.cloud import firestore
 
@@ -268,6 +276,8 @@ def save_scan(
 
 
 def _as_iso(value: object) -> str:
+    """Serialize Firestore timestamps and fallback values for JSON responses."""
+
     if isinstance(value, datetime):
         return value.isoformat()
     return str(value or "")

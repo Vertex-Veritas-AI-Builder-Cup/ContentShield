@@ -11,6 +11,8 @@ from app.services.faiss_index import search_video_segments
 class FaissIndexTests(unittest.TestCase):
     @staticmethod
     def _record(clip_id: str, segment_id: str, embedding: list[float]) -> dict:
+        """Build a protected-segment fixture record for FAISS tests."""
+
         return {
             "clip_id": clip_id,
             "title": clip_id.replace("_", " ").title(),
@@ -24,6 +26,8 @@ class FaissIndexTests(unittest.TestCase):
         }
 
     def test_faiss_score_matches_cosine_similarity(self) -> None:
+        """Verify normalized FAISS scores match an independently calculated cosine score."""
+
         records = [
             {
                 "clip_id": "clip_a",
@@ -61,6 +65,8 @@ class FaissIndexTests(unittest.TestCase):
         self.assertAlmostEqual(results[0]["content_similarity"], expected, places=6)
 
     def test_cropped_copy_keeps_high_risk_with_partial_coverage(self) -> None:
+        """Verify a strong partial match remains high risk with measurable coverage."""
+
         records = [
             self._record("clip_original", "segment_000", [1.0, 0.0]),
             self._record("clip_other", "segment_000", [0.0, -1.0]),
@@ -82,6 +88,8 @@ class FaissIndexTests(unittest.TestCase):
         self.assertAlmostEqual(top["segment_coverage"], 0.5, places=6)
 
     def test_unrelated_video_is_low_risk(self) -> None:
+        """Verify an orthogonal fixture is classified below the low-risk threshold."""
+
         records = [
             self._record("clip_a", "segment_000", [1.0, 0.0]),
             self._record("clip_b", "segment_000", [0.0, 1.0]),

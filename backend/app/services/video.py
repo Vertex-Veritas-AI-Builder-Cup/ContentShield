@@ -10,6 +10,8 @@ from app.config import get_settings
 
 
 class VideoProcessingError(RuntimeError):
+    """Represent an FFmpeg or video-metadata processing failure."""
+
     pass
 
 
@@ -46,6 +48,8 @@ def probe_video(path: Path) -> dict:
 
 
 def video_duration_seconds(path: Path) -> float:
+    """Read and validate the duration of a local video file in seconds."""
+
     metadata = probe_video(path)
     try:
         duration = float(metadata["format"]["duration"])

@@ -21,11 +21,15 @@ ALLOWED_SUFFIXES = {".mp4", ".mov"}
 
 
 def _title_from_filename(filename: str | None) -> str:
+    """Turn an uploaded filename into a readable fallback clip title."""
+
     stem = Path(filename or "clip").stem
     return stem.replace("_", " ").replace("-", " ").strip() or "Untitled clip"
 
 
 async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:
+    """Stream an uploaded file to disk while enforcing the byte limit."""
+
     total = 0
     with target.open("wb") as output:
         while chunk := await upload.read(1024 * 1024):
@@ -42,6 +46,8 @@ async def register_clip(
     title: str | None = Form(default=None),
     creator_name: str | None = Form(default=None),
 ):
+    """Register an original video, fingerprint it, and persist its metadata."""
+
     try:
         settings = get_settings()
     except RuntimeError as exc:
@@ -127,11 +133,15 @@ async def register_clip(
 
 @router.get("/api/clips")
 def get_clips():
+    """List protected clips for the catalog screen."""
+
     return {"clips": list_clips()}
 
 
 @router.get("/api/clips/{clip_id}")
 def get_clip_by_id(clip_id: str):
+    """Return one protected clip or a 404 response when it is missing."""
+
     clip = get_clip(clip_id)
     if clip is None:
         raise HTTPException(status_code=404, detail="Clip not found")
@@ -140,6 +150,8 @@ def get_clip_by_id(clip_id: str):
 
 @router.delete("/api/clips/{clip_id}")
 def remove_clip(clip_id: str):
+    """Delete one protected clip and its stored original from the catalog."""
+
     try:
         deleted = delete_clip(clip_id)
     except Exception as exc:

@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   description: "Keep your shorts. Check the copies.",
 };
 
+/** Provide the global font, metadata, styles, and navigation shell. */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${ui.variable} h-full`}>

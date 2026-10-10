@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+/** Render a small control that reports whether the backend is reachable. */
 export function HealthCheck() {
   const [state, setState] = useState<"idle" | "ok" | "down" | "busy">("idle");
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+  /** Call the backend health endpoint and update the connection state. */
   async function ping() {
     setState("busy");
     try {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClipCatalog } from "@/components/ClipCatalog";
 import { VideoUploadForm } from "@/components/VideoUploadForm";
 
+/** Render the protected-original registration and catalog page. */
 export default function CatalogPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 

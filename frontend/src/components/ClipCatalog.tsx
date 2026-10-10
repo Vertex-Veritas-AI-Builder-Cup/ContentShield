@@ -9,6 +9,7 @@ export type Clip = {
   created_at: string;
 };
 
+/** Load and render protected originals, including confirmation-based deletion. */
 export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
   const [clips, setClips] = useState<Clip[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +20,7 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+  /** Fetch the latest protected clip catalog from the backend. */
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -36,9 +38,12 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [apiUrl]);
 
   useEffect(() => {
+    // Refresh the catalog on mount and whenever the parent signals a change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load updates state asynchronously after the request completes.
     void load();
   }, [load, refreshKey]);
 
+  /** Delete one protected original after the user confirms the action. */
   async function remove(clipId: string) {
     setDeletingId(clipId);
     setError(null);
