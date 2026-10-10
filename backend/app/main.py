@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.clips import router as clips_router
 from app.routes.scan import router as scan_router
+from app.routes.verdict_explanation import router as verdict_explanation_router
 
 app = FastAPI(
     title="ContentShield API",
@@ -12,6 +13,7 @@ app = FastAPI(
 
 app.include_router(clips_router)
 app.include_router(scan_router)
+app.include_router(verdict_explanation_router)
 
 app.add_middleware(
     CORSMiddleware,
