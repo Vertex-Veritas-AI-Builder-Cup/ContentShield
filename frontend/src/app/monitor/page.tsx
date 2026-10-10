@@ -5,6 +5,7 @@ import { MatchDetail } from "@/components/MatchDetail";
 import { ScanFeed } from "@/components/ScanFeed";
 import { ScanUploadForm } from "@/components/ScanUploadForm";
 import { ScanDetail, apiBase, errorMessage } from "@/components/scanTypes";
+import { VerdictExplanationPanel } from "@/components/VerdictExplanationPanel";
 
 /** Render suspicious-video upload, match detail, and scan history. */
 export default function CheckPage() {
@@ -72,6 +73,10 @@ export default function CheckPage() {
           suspiciousTitle={suspiciousTitle}
         />
       </div>
+      <VerdictExplanationPanel
+        scanId={detail?.scan_id ?? null}
+        topMatch={detail?.top_match ?? null}
+      />
       <ScanFeed refreshKey={refreshKey} />
     </div>
   );
