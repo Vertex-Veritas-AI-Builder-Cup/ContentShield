@@ -9,11 +9,21 @@ credentials.json
 
 # Python
 backend/.venv/
+.venv/
+venv/
+/LOS/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
 backend/.pytest_cache/
 backend/.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
 
 # Node / Next.js
 frontend/node_modules/
@@ -36,3 +46,10 @@ build/
 
 # FAISS index (generated locally)
 backend/data/faiss_index/
+
+# Planning documents (keep local)
+*plan*.md
+*Plan*.md
+
+# Local Codex configuration
+.codex/

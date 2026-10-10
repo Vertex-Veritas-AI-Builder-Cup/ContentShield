@@ -7,6 +7,7 @@ list_clips() and get_clip(clip_id).
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -34,6 +35,38 @@ def list_clips() -> list[dict]:
         return clips
     except Exception:
         return []
+
+
+def save_clip(
+    *,
+    clip_id: str,
+    title: str,
+    creator_name: str,
+    gcs_uri: str,
+    embedding: list[float],
+    duration_seconds: float,
+    keyframe_count: int,
+) -> datetime:
+    """Persist a registered clip and its content fingerprint."""
+
+    from google.cloud import firestore
+
+    created_at = datetime.now(timezone.utc)
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("clips").document(clip_id).set(
+        {
+            "title": title,
+            "creator_name": creator_name,
+            "gcs_uri": gcs_uri,
+            "status": "fingerprinted",
+            "embedding": embedding,
+            "embedding_dimensions": len(embedding),
+            "duration_seconds": duration_seconds,
+            "keyframe_count": keyframe_count,
+            "created_at": created_at,
+        }
+    )
+    return created_at
 
 
 def get_clip(clip_id: str) -> dict | None:
