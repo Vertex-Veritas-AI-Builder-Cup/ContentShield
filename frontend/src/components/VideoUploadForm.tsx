@@ -12,11 +12,13 @@ type Props = {
   onRegistered?: () => void;
 };
 
+/** Format a file size for the protected-original upload control. */
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Let a user upload and register a protected original video. */
 export function VideoUploadForm({ onRegistered }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -32,6 +34,8 @@ export function VideoUploadForm({ onRegistered }: Props) {
 
   useEffect(() => {
     if (!file) {
+      // Clear derived preview state when the selected file is removed.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- preview state mirrors the selected file.
       setPreview(null);
       setSeconds(null);
       return;
@@ -41,6 +45,7 @@ export function VideoUploadForm({ onRegistered }: Props) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  /** Store a selected original and derive a fallback title when needed. */
   function takeFile(next: File | undefined) {
     if (!next) return;
     setFile(next);
@@ -51,6 +56,7 @@ export function VideoUploadForm({ onRegistered }: Props) {
     }
   }
 
+  /** Upload the selected original and notify the catalog after registration. */
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!file) {

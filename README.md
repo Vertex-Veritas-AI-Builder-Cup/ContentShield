@@ -40,6 +40,40 @@ uvicorn app.main:app --reload --port 8000
 API docs: http://localhost:8000/docs  
 Health check: http://localhost:8000/health
 
+Day 3 scan behavior is available at `POST /api/scan`; scan history is available at
+`GET /api/scans`. Similarity scores are cosine-similarity scores, not calibrated
+probabilities: `>= 0.75` is `high_risk`, `0.50`–`< 0.75` is `medium_risk`, and
+`< 0.50` is `low_risk`. These are initial thresholds calibrated against the
+deterministic exact-copy, cropped-copy, and unrelated matching fixtures and should
+be recalibrated with labelled production-like videos before launch.
+
+Run the backend unit checks from `backend` with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+## API endpoints
+
+The backend exposes the following FastAPI endpoints. Interactive request and
+response schemas are available at `/docs` when the backend is running.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/` | Return links to the API docs and health check. |
+| `GET` | `/health` | Confirm that the backend process is running. |
+| `POST` | `/api/clips/register` | Upload a protected original video, create its versioned video embeddings, and save it to the protected catalog. Accepts multipart `file`, with optional `title` and `creator_name` fields. |
+| `GET` | `/api/clips` | List protected originals for the catalog UI. |
+| `GET` | `/api/clips/{clip_id}` | Return public metadata for one protected original. |
+| `DELETE` | `/api/clips/{clip_id}` | Delete one protected original, its GCS object, and its Firestore record. |
+| `POST` | `/api/scan` | Upload a suspicious video, generate query embeddings, search the protected catalog with FAISS, calculate risk verdicts, and persist the scan. Accepts multipart `file`. |
+| `GET` | `/api/scans` | Return recent scan history with the scan ID, top similarity, verdict, and timestamp. |
+
+Similarity values returned by `/api/scan` and `/api/scans` are cosine-similarity
+scores, not calibrated infringement probabilities. The current initial verdict
+cutoffs are `high_risk` at `>= 0.75`, `medium_risk` at `0.50`–`< 0.75`, and
+`low_risk` below `0.50`.
+
 ### 2. Frontend
 
 ```bash

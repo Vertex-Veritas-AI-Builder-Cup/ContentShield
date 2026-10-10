@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ScanResult } from "@/components/MatchResults";
 
+/** Format a file size for the upload control. */
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -12,6 +13,7 @@ type Props = {
   onScanned: (result: ScanResult) => void;
 };
 
+/** Let a user select a suspicious video and submit it to the scan API. */
 export function ScanUploadForm({ onScanned }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -25,6 +27,8 @@ export function ScanUploadForm({ onScanned }: Props) {
 
   useEffect(() => {
     if (!file) {
+      // Clear derived preview state when the selected file is removed.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- preview state mirrors the selected file.
       setPreview(null);
       setSeconds(null);
       return;
@@ -34,12 +38,14 @@ export function ScanUploadForm({ onScanned }: Props) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  /** Store a selected file and clear any previous upload error. */
   function takeFile(next: File | undefined) {
     if (!next) return;
     setFile(next);
     setError(null);
   }
 
+  /** Submit the selected suspicious video and return its scan result to the page. */
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!file) {

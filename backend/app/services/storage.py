@@ -10,6 +10,8 @@ from app.config import get_settings
 
 
 def upload_file(local_path: Path, destination: str, content_type: str) -> str:
+    """Upload a local video to the configured bucket and return its GCS URI."""
+
     settings = get_settings()
     client = storage.Client(project=settings.gcp_project_id)
     blob = client.bucket(settings.gcs_bucket).blob(destination)
@@ -18,6 +20,8 @@ def upload_file(local_path: Path, destination: str, content_type: str) -> str:
 
 
 def delete_gcs_uri(gcs_uri: str) -> None:
+    """Delete a GCS object referenced by a ``gs://`` URI when it is valid."""
+
     if not gcs_uri.startswith("gs://"):
         return
     bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")

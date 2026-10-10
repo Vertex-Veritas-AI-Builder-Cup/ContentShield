@@ -10,6 +10,7 @@ const tabs = [
   { href: "/monitor", label: "Check" },
 ];
 
+/** Render the shared navigation shell and footer around every page. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 

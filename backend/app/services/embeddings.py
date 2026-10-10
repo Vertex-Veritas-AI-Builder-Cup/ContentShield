@@ -11,10 +11,14 @@ from app.config import get_settings
 
 
 class EmbeddingError(RuntimeError):
+    """Represent a failure while creating a content fingerprint."""
+
     pass
 
 
 def _client() -> genai.Client:
+    """Create a Vertex AI Gen AI client from the application settings."""
+
     settings = get_settings()
     return genai.Client(
         vertexai=True,
@@ -24,6 +28,8 @@ def _client() -> genai.Client:
 
 
 def _summarize_keyframes(frames: list[Path], duration_seconds: float) -> str:
+    """Ask Gemini to turn sampled video frames into a matchable text summary."""
+
     settings = get_settings()
     prompt = f"""
 Create a compact content fingerprint for a short video.
@@ -50,6 +56,8 @@ legal conclusions. Return plain text in 8 numbered lines, one per keyframe.
 
 
 def embed_text(text: str) -> list[float]:
+    """Convert a text fingerprint into a normalized-provider embedding vector."""
+
     settings = get_settings()
     try:
         response = _client().models.embed_content(
@@ -71,6 +79,8 @@ def embed_text(text: str) -> list[float]:
 
 
 def embed_video(frames: list[Path], duration_seconds: float) -> list[float]:
+    """Build the legacy Day 2 embedding from keyframes and their visual summary."""
+
     summary = _summarize_keyframes(frames, duration_seconds)
     return embed_text(summary)
 
