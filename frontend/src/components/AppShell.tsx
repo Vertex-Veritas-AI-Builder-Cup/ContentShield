@@ -7,7 +7,7 @@ import { HealthCheck } from "@/components/HealthCheck";
 const tabs = [
   { href: "/", label: "Home" },
   { href: "/catalog", label: "Originals" },
-  { href: "/monitor", label: "Check", soon: true },
+  { href: "/monitor", label: "Check" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -23,17 +23,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="flex items-center gap-1 text-sm">
             {tabs.map((tab) => {
               const active = pathname === tab.href;
-              if (tab.soon) {
-                return (
-                  <span
-                    key={tab.label}
-                    className="px-2.5 py-1 text-[#6f6a62]"
-                    title="Next: drop a Short or Reel to check"
-                  >
-                    {tab.label}
-                  </span>
-                );
-              }
               return (
                 <Link
                   key={tab.href}

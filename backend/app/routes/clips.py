@@ -132,6 +132,11 @@ def get_clip_by_id(clip_id: str):
 
 @router.delete("/api/clips/{clip_id}")
 def remove_clip(clip_id: str):
-    if not delete_clip(clip_id):
+    try:
+        deleted = delete_clip(clip_id)
+    except Exception as exc:
+        logger.exception("Failed to delete clip %s", clip_id)
+        raise HTTPException(status_code=502, detail="Could not delete that original") from exc
+    if not deleted:
         raise HTTPException(status_code=404, detail="Clip not found")
     return {"deleted": clip_id}

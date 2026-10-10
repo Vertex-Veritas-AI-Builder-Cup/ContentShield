@@ -15,12 +15,14 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
   const [loading, setLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch(`${apiUrl}/api/clips`);
       if (!res.ok) throw new Error("Could not load originals.");
@@ -40,11 +42,20 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
   async function remove(clipId: string) {
     setDeletingId(clipId);
     setError(null);
+    setNotice(null);
     try {
-      const res = await fetch(`${apiUrl}/api/clips/${clipId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Could not remove that original.");
-      setClips((current) => current.filter((clip) => clip.clip_id !== clipId));
+      const res = await fetch(`${apiUrl}/api/clips/${encodeURIComponent(clipId)}`, {
+        method: "DELETE",
+      });
+      const json = (await res.json().catch(() => ({}))) as { detail?: string; deleted?: string };
+      if (!res.ok || json.deleted !== clipId) {
+        throw new Error(
+          typeof json.detail === "string" ? json.detail : "Could not remove that original.",
+        );
+      }
       setPendingDelete(null);
+      await load();
+      setNotice("Removed. Add another above if you want.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove that original.");
     } finally {
@@ -61,7 +72,8 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
         </span>
       </div>
 
-      {error && <p className="text-sm text-[#f0b429]">{error}</p>}
+      {notice && <p className="mb-3 text-sm text-[#c8e6c4]">{notice}</p>}
+      {error && <p className="mb-3 text-sm text-[#f0b429]">{error}</p>}
 
       {!loading && !error && clips.length === 0 && (
         <p className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-sm text-[#9b958c]">
@@ -75,12 +87,12 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
             key={clip.clip_id}
             className="group flex items-center justify-between border-t border-white/10 py-3 transition-colors hover:bg-white/[0.03]"
           >
-            <span>{clip.title || "Untitled"}</span>
+            <span className="min-w-0 truncate pr-4">{clip.title || "Untitled"}</span>
             {pendingDelete === clip.clip_id ? (
-              <span className="flex items-center gap-2 text-xs">
+              <span className="flex shrink-0 items-center gap-3 text-xs">
                 <button
                   type="button"
-                  className="text-[#f0b429] hover:text-[#f4f1ea]"
+                  className="text-[#f0b429] hover:text-[#f4f1ea] disabled:opacity-50"
                   disabled={deletingId === clip.clip_id}
                   onClick={() => void remove(clip.clip_id)}
                 >
@@ -89,6 +101,7 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
                 <button
                   type="button"
                   className="text-[#9b958c] hover:text-[#f4f1ea]"
+                  disabled={deletingId === clip.clip_id}
                   onClick={() => setPendingDelete(null)}
                 >
                   Keep
@@ -97,8 +110,12 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
             ) : (
               <button
                 type="button"
-                className="text-xs text-[#6f6a62] hover:text-[#f4f1ea]"
-                onClick={() => setPendingDelete(clip.clip_id)}
+                className="shrink-0 text-xs text-[#9b958c] hover:text-[#f4f1ea] disabled:opacity-40"
+                disabled={deletingId !== null}
+                onClick={() => {
+                  setNotice(null);
+                  setPendingDelete(clip.clip_id);
+                }}
               >
                 Remove
               </button>

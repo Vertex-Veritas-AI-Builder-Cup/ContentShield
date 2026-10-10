@@ -91,28 +91,83 @@ def get_clip(clip_id: str) -> dict | None:
 
 
 def delete_clip(clip_id: str) -> bool:
-    clip = get_clip(clip_id)
-    if clip is None:
-        return False
+    """Remove one original: stored file, search entry, then the shelf record.
 
-    gcs_uri = clip.get("gcs_uri") or ""
-    if gcs_uri.startswith("gs://"):
-        _delete_gcs_object(gcs_uri)
+    Any clip id on the shelf can be deleted. A missing file still clears the record
+    so the same person can upload a replacement.
+    """
 
     from google.cloud import firestore
 
     db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
-    db.collection("clips").document(clip_id).delete()
+    doc_ref = db.collection("clips").document(clip_id)
+    snapshot = doc_ref.get()
+    if not snapshot.exists:
+        return False
+
+    data = snapshot.to_dict() or {}
+    gcs_uri = data.get("gcs_uri") or ""
+    if str(gcs_uri).startswith("gs://"):
+        _delete_stored_video(str(gcs_uri))
+    _remove_from_search_index(clip_id)
+    doc_ref.delete()
     return True
 
 
-def _delete_gcs_object(gcs_uri: str) -> None:
-    """Remove the video file. Teammate 2 can move this into services/storage.py."""
-    rest = gcs_uri.removeprefix("gs://")
-    bucket_name, _, blob_name = rest.partition("/")
-    if not bucket_name or not blob_name:
-        return
-    from google.cloud import storage
+def _delete_stored_video(gcs_uri: str) -> None:
+    from google.api_core.exceptions import NotFound
 
-    client = storage.Client(project=os.getenv("GCP_PROJECT_ID"))
-    client.bucket(bucket_name).blob(blob_name).delete()
+    from app.services.storage import delete_gcs_uri
+
+    try:
+        delete_gcs_uri(gcs_uri)
+    except NotFound:
+        return
+
+
+def _remove_from_search_index(clip_id: str) -> None:
+    """Day 3 index lives in faiss_index.remove_clip. Skip until that file exists."""
+
+    try:
+        from app.services.faiss_index import remove_clip
+    except ImportError:
+        return
+    remove_clip(clip_id)
+
+
+def list_scans() -> list[dict]:
+    try:
+        from google.cloud import firestore
+
+        db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+        docs = (
+            db.collection("scans")
+            .order_by("scanned_at", direction="DESCENDING")
+            .limit(50)
+            .stream()
+        )
+        scans = []
+        for doc in docs:
+            data = doc.to_dict() or {}
+            top = data.get("top_match") or {}
+            similarity = data.get("top_similarity")
+            if similarity is None:
+                similarity = top.get("content_similarity") or 0
+            verdict = data.get("verdict") or top.get("verdict") or "low_risk"
+            scans.append(
+                {
+                    "scan_id": doc.id,
+                    "top_similarity": similarity,
+                    "verdict": verdict,
+                    "scanned_at": _as_iso(data.get("scanned_at")),
+                }
+            )
+        return scans
+    except Exception:
+        return []
+
+
+def _as_iso(value: object) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value or "")
