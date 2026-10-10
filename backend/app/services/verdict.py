@@ -2,6 +2,8 @@
 
 
 def verdict_from_score(similarity: float) -> str:
+    """Map a cosine-similarity score to the public risk category."""
+
     if similarity >= 0.75:
         return "high_risk"
     if similarity >= 0.50:
