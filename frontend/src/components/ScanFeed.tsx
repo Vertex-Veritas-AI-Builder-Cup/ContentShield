@@ -1,13 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Verdict } from "@/components/MatchResults";
+import { Verdict } from "@/components/scanTypes";
+
+type HighMatch = {
+  protected_title: string;
+  content_similarity: number;
+};
 
 type ScanRow = {
   scan_id: string;
   top_similarity: number;
   verdict: Verdict;
   scanned_at: string;
+  protected_title?: string;
+  source_filename?: string;
+  high_matches?: HighMatch[];
 };
 
 const badge: Record<Verdict, { label: string; className: string }> = {
@@ -15,6 +23,26 @@ const badge: Record<Verdict, { label: string; className: string }> = {
   medium_risk: { label: "Medium", className: "text-[#f0b429]" },
   low_risk: { label: "Low", className: "text-[#c8e6c4]" },
 };
+
+function matchPercent(score: number) {
+  return `${Math.round(score * 100)}%`;
+}
+
+// One line per original. A single match still gets a score so every row looks the same.
+function pairedOriginals(scan: ScanRow) {
+  const high = scan.high_matches ?? [];
+  if (high.length > 0) {
+    return high.map((match) => ({
+      title: match.protected_title,
+      score: match.content_similarity ?? 0,
+      verdict: "high_risk" as Verdict,
+    }));
+  }
+  if (scan.protected_title) {
+    return [{ title: scan.protected_title, score: scan.top_similarity ?? 0, verdict: scan.verdict }];
+  }
+  return [];
+}
 
 /** Format an API timestamp for the recent-scan history list. */
 function when(value: string) {
@@ -29,7 +57,14 @@ function when(value: string) {
 }
 
 /** Fetch and render the most recent scan summaries from the backend. */
-export function ScanFeed({ refreshKey = 0 }: { refreshKey?: number }) {
+export function ScanFeed({
+  refreshKey = 0,
+  onOpen,
+}: {
+  refreshKey?: number;
+  // Called when a past check is clicked, so the page can open that scan.
+  onOpen?: (scanId: string) => void;
+}) {
   const [scans, setScans] = useState<ScanRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,17 +104,47 @@ export function ScanFeed({ refreshKey = 0 }: { refreshKey?: number }) {
       )}
       <ul>
         {scans.map((scan) => (
-          <li
-            key={scan.scan_id}
-            className="flex items-center justify-between border-t border-white/10 py-3 text-sm"
-          >
-            <span className="text-[#9b958c]">{when(scan.scanned_at)}</span>
-            <span className="flex items-center gap-3">
-              <span>{Math.round((scan.top_similarity ?? 0) * 100)}%</span>
-              <span className={badge[scan.verdict]?.className ?? "text-[#9b958c]"}>
-                {badge[scan.verdict]?.label ?? scan.verdict}
+          <li key={scan.scan_id} className="border-t border-white/10">
+            <button
+              type="button"
+              className="grid w-full grid-cols-1 gap-3 py-3 text-left text-sm hover:bg-white/[0.03] sm:grid-cols-[1fr_1fr_7.5rem] sm:gap-4"
+              onClick={() => onOpen?.(scan.scan_id)}
+            >
+              <span className="min-w-0">
+                <span className="block text-[11px] text-[#6f6a62]">Checked video</span>
+                <span className="mt-1 block truncate">
+                  {scan.source_filename || "Name not saved"}
+                </span>
+                <span className="mt-1 block text-xs text-[#6f6a62]">{when(scan.scanned_at)}</span>
               </span>
-            </span>
+              <span className="min-w-0">
+                <span className="block text-[11px] text-[#6f6a62]">Your original</span>
+                {pairedOriginals(scan).length === 0 ? (
+                  <span className="mt-1 block text-[#9b958c]">No original matched</span>
+                ) : (
+                  pairedOriginals(scan).map((match, index) => (
+                    <span key={`${match.title}-${index}`} className="mt-1 block truncate">
+                      {match.title}
+                    </span>
+                  ))
+                )}
+              </span>
+              <span>
+                <span className="block text-[11px] text-[#6f6a62]">Match score</span>
+                {pairedOriginals(scan).length === 0 ? (
+                  <span className="mt-1 block text-[#9b958c]">None</span>
+                ) : (
+                  pairedOriginals(scan).map((match, index) => (
+                    <span
+                      key={`${match.title}-${index}`}
+                      className={`mt-1 block ${badge[match.verdict]?.className ?? "text-[#9b958c]"}`}
+                    >
+                      {matchPercent(match.score)} {badge[match.verdict]?.label ?? match.verdict}
+                    </span>
+                  ))
+                )}
+              </span>
+            </button>
           </li>
         ))}
       </ul>
