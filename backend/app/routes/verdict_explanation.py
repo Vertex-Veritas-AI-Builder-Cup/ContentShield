@@ -16,6 +16,7 @@ from app.services.firestore_db import (
 )
 from app.services.storage import signed_url_for_gcs_uri
 from app.services.verdict_explanation import (
+    GeminiProviderError,
     VerdictExplanationError,
     explain_top_match,
 )
@@ -103,6 +104,8 @@ def explain_scan_verdict(scan_id: str):
             top_match=top_match,
         )
         save_verdict_explanation(scan_id, explanation)
+    except GeminiProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except VerdictExplanationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"scan_id": scan_id, "verdict_explanation": explanation}

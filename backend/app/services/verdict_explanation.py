@@ -22,6 +22,10 @@ class VerdictExplanationError(RuntimeError):
     """Represent an unavailable or malformed automated verdict explanation."""
 
 
+class GeminiProviderError(VerdictExplanationError):
+    """Represent a Gemini or Vertex AI request failure rather than bad model JSON."""
+
+
 def _client() -> genai.Client:
     """Create the Vertex AI client used for grounded verdict-explanation prompts."""
 
@@ -196,7 +200,13 @@ is legally infringing, and do not invent URLs, ownership, or timestamps.
             config={"response_mime_type": "application/json"},
         )
     except Exception as exc:
-        raise VerdictExplanationError("Gemini could not explain the top match") from exc
+        # Keep the provider failure actionable for local prototype debugging while
+        # truncating the detail so credentials or very large SDK payloads cannot
+        # leak through the API response.
+        provider_detail = " ".join(str(exc).split())[:240] or type(exc).__name__
+        raise GeminiProviderError(
+            f"Gemini could not explain the top match: {provider_detail}"
+        ) from exc
 
     response_text = getattr(response, "text", None) or ""
     if not response_text.strip():
