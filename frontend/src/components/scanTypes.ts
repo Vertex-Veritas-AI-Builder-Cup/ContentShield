@@ -33,7 +33,16 @@ export type VerdictExplanation = {
   created_at?: string;
 };
 
-// Full record for one check, including any saved explanation.
+// A takedown notice draft the user can review, copy, or download.
+export type DmcaDraft = {
+  draft_id: string;
+  subject: string;
+  body: string;
+  disclaimer: string;
+  created_at?: string;
+};
+
+// Full record for one check, including any saved explanation or draft.
 export type ScanDetail = {
   scan_id: string;
   suspicious_clip_id?: string;
@@ -42,6 +51,7 @@ export type ScanDetail = {
   top_match: ScanMatch | null;
   processing_ms?: number;
   verdict_explanation?: VerdictExplanation | null;
+  dmca_draft?: DmcaDraft | null;
   suspicious_video_url?: string | null;
   protected_video_url?: string | null;
 };
