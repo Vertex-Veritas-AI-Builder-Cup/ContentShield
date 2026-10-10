@@ -193,8 +193,12 @@ is legally infringing, and do not invent URLs, ownership, or timestamps.
             )
         ),
     ]
+    client: genai.Client | None = None
     try:
-        response = _client().models.generate_content(
+        # Keep the client alive for the full request. Calling `_client()` inline
+        # can let its underlying HTTP transport close before the SDK finishes.
+        client = _client()
+        response = client.models.generate_content(
             model=settings.gemini_analysis_model,
             contents=content,
             config={"response_mime_type": "application/json"},
@@ -207,6 +211,14 @@ is legally infringing, and do not invent URLs, ownership, or timestamps.
         raise GeminiProviderError(
             f"Gemini could not explain the top match: {provider_detail}"
         ) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                # A request result should not be discarded because transport
+                # cleanup itself failed.
+                pass
 
     response_text = getattr(response, "text", None) or ""
     if not response_text.strip():
