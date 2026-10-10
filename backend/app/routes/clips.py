@@ -8,10 +8,10 @@ from uuid import uuid4
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.config import get_settings
-from app.services.embeddings import EmbeddingError, embed_video
 from app.services.firestore_db import delete_clip, get_clip, list_clips, save_clip
 from app.services.storage import delete_gcs_uri, upload_file
-from app.services.video import VideoProcessingError, extract_keyframes, video_duration_seconds
+from app.services.video import VideoProcessingError, video_duration_seconds
+from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -70,25 +70,31 @@ async def register_clip(
                 f"Video must be {settings.max_video_seconds} seconds or shorter"
             )
 
-        with tempfile.TemporaryDirectory(prefix=f"{clip_id}_frames_") as frame_dir:
-            frames = extract_keyframes(temp_path, Path(frame_dir), count=8)
-            logger.info(f"Extracted {len(frames)} keyframes from {temp_path}")
-            embedding = embed_video(frames, duration_seconds)
-
         destination = f"originals/{clip_id}{suffix if suffix in ALLOWED_SUFFIXES else '.mp4'}"
+        content_type = file.content_type or (
+            "video/quicktime" if suffix == ".mov" else "video/mp4"
+        )
         gcs_uri = upload_file(
             temp_path,
             destination,
-            file.content_type or "video/mp4",
+            content_type,
         )
+        embedding_segments = embed_video_segments(
+            gcs_uri,
+            duration_seconds=duration_seconds,
+            mime_type=content_type,
+        )
+        embedding_dimension = len(embedding_segments[0]["embedding"])
         created_at = save_clip(
             clip_id=clip_id,
             title=(title or "").strip() or _title_from_filename(filename),
             creator_name=(creator_name or "").strip(),
             gcs_uri=gcs_uri,
-            embedding=embedding,
+            embedding_segments=embedding_segments,
+            embedding_version=settings.video_embedding_version,
+            embedding_model=settings.gemini_video_embedding_model,
+            embedding_dimension=embedding_dimension,
             duration_seconds=duration_seconds,
-            keyframe_count=len(frames),
         )
         persisted = True
         return {
@@ -96,12 +102,14 @@ async def register_clip(
             "title": (title or "").strip() or _title_from_filename(filename),
             "gcs_uri": gcs_uri,
             "status": "fingerprinted",
-            "embedding_dimensions": len(embedding),
+            "embedding_dimensions": embedding_dimension,
+            "embedding_version": settings.video_embedding_version,
+            "segment_count": len(embedding_segments),
             "created_at": created_at.isoformat(),
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except (VideoProcessingError, EmbeddingError) as exc:
+    except (VideoProcessingError, VideoEmbeddingError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Failed to register clip %s", clip_id)

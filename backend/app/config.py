@@ -20,6 +20,12 @@ class Settings:
     gcs_bucket: str
     gemini_analysis_model: str
     gemini_embedding_model: str
+    gemini_video_embedding_model: str
+    gemini_embedding_location: str
+    video_embedding_version: str
+    video_segment_seconds: int
+    ffmpeg_binary: str
+    ffprobe_binary: str
     max_upload_bytes: int
     max_video_seconds: int
 
@@ -51,6 +57,16 @@ def get_settings() -> Settings:
         gemini_embedding_model=os.getenv(
             "GEMINI_EMBEDDING_MODEL", "gemini-embedding-001"
         ).strip(),
+        gemini_video_embedding_model=os.getenv(
+            "GEMINI_VIDEO_EMBEDDING_MODEL", "gemini-embedding-2"
+        ).strip(),
+        gemini_embedding_location=os.getenv(
+            "GEMINI_EMBEDDING_LOCATION", "global"
+        ).strip(),
+        video_embedding_version="video_segment_v1",
+        video_segment_seconds=int(os.getenv("VIDEO_SEGMENT_SECONDS", "5")),
+        ffmpeg_binary=os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg",
+        ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024))),
         max_video_seconds=int(os.getenv("MAX_VIDEO_SECONDS", "90")),
     )

@@ -6,6 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from app.config import get_settings
+
 
 class VideoProcessingError(RuntimeError):
     pass
@@ -15,7 +17,7 @@ def probe_video(path: Path) -> dict:
     """Return duration and stream metadata from ffprobe."""
 
     command = [
-        "ffprobe",
+        get_settings().ffprobe_binary,
         "-v",
         "error",
         "-show_entries",
@@ -62,7 +64,7 @@ def extract_keyframes(path: Path, output_dir: Path, count: int = 8) -> list[Path
     interval = max(duration / count, 0.1)
     output_pattern = output_dir / "frame-%02d.jpg"
     command = [
-        "ffmpeg",
+        get_settings().ffmpeg_binary,
         "-y",
         "-i",
         str(path),

@@ -40,6 +40,19 @@ uvicorn app.main:app --reload --port 8000
 API docs: http://localhost:8000/docs  
 Health check: http://localhost:8000/health
 
+Day 3 scan behavior is available at `POST /api/scan`; scan history is available at
+`GET /api/scans`. Similarity scores are cosine-similarity scores, not calibrated
+probabilities: `>= 0.75` is `high_risk`, `0.50`–`< 0.75` is `medium_risk`, and
+`< 0.50` is `low_risk`. These are initial thresholds calibrated against the
+deterministic exact-copy, cropped-copy, and unrelated matching fixtures and should
+be recalibrated with labelled production-like videos before launch.
+
+Run the backend unit checks from `backend` with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ### 2. Frontend
 
 ```bash
