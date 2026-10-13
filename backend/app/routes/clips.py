@@ -10,6 +10,12 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.config import get_settings
 from app.services.firestore_db import delete_clip, get_clip, list_clips, save_clip
 from app.services.storage import delete_gcs_uri, upload_file
+from app.services.style_features import (
+    STYLE_EMBEDDING_VERSION,
+    StyleFeatureError,
+    extract_style_features,
+    style_embedding_from_features,
+)
 from app.services.video import VideoProcessingError, video_duration_seconds
 from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
 
@@ -75,6 +81,8 @@ async def register_clip(
             raise ValueError(
                 f"Video must be {settings.max_video_seconds} seconds or shorter"
             )
+        style_features = extract_style_features(temp_path)
+        style_embedding = style_embedding_from_features(style_features)
 
         destination = f"originals/{clip_id}{suffix if suffix in ALLOWED_SUFFIXES else '.mp4'}"
         content_type = file.content_type or (
@@ -102,6 +110,9 @@ async def register_clip(
             embedding_model=settings.gemini_video_embedding_model,
             embedding_dimension=embedding_dimension,
             duration_seconds=duration_seconds,
+            style_embedding=style_embedding,
+            style_embedding_version=STYLE_EMBEDDING_VERSION,
+            style_embedding_dimension=len(style_embedding),
         )
         persisted = True
         return {
@@ -112,11 +123,13 @@ async def register_clip(
             "embedding_dimensions": embedding_dimension,
             "embedding_version": settings.video_embedding_version,
             "segment_count": len(embedding_segments),
+            "style_embedding_version": STYLE_EMBEDDING_VERSION,
+            "style_embedding_dimension": len(style_embedding),
             "created_at": created_at.isoformat(),
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except (VideoProcessingError, VideoEmbeddingError) as exc:
+    except (VideoProcessingError, VideoEmbeddingError, StyleFeatureError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Failed to register clip %s", clip_id)

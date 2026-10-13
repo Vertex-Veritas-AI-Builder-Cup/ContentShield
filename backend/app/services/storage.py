@@ -33,19 +33,6 @@ def delete_gcs_uri(gcs_uri: str) -> None:
     client.bucket(bucket_name).blob(blob_name).delete()
 
 
-def download_gcs_uri(gcs_uri: str, destination: Path) -> None:
-    """Download a private GCS object to a temporary local path for analysis."""
-
-    if not gcs_uri.startswith("gs://"):
-        raise ValueError("Expected a gs:// URI")
-    bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")
-    if not bucket_name or not blob_name:
-        raise ValueError("Invalid GCS URI")
-    settings = get_settings()
-    client = storage.Client(project=settings.gcp_project_id)
-    client.bucket(bucket_name).blob(blob_name).download_to_filename(str(destination))
-
-
 def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int = 15) -> str | None:
     """Create a short-lived browser URL for a private GCS video when possible."""
 
