@@ -131,6 +131,17 @@ export function MatchDetail({
     <div>
       <MatchResults result={detail} />
 
+      {detail.style_notice && (
+        <section className="mt-5 rounded-xl border border-[#f0b429]/30 bg-[#f0b429]/[0.05] p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-[#f0b429]">Style signal</p>
+          <p className="mt-2 text-sm font-medium">{detail.style_notice.message}</p>
+          <p className="mt-1 text-xs text-[#9b958c]">
+            Style similarity {detail.style_notice.style_similarity.toFixed(2)}. This is creator
+            intelligence, not a copyright or legal conclusion.
+          </p>
+        </section>
+      )}
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <VideoPanel
           label="Suspicious short"

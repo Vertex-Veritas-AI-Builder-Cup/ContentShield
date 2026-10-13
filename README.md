@@ -62,7 +62,7 @@ response schemas are available at `/docs` when the backend is running.
 |---|---|---|
 | `GET` | `/` | Return links to the API docs and health check. |
 | `GET` | `/health` | Confirm that the backend process is running. |
-| `POST` | `/api/clips/register` | Upload a protected original video, create its versioned video embeddings, and save it to the protected catalog. Accepts multipart `file`, with optional `title` and `creator_name` fields. |
+| `POST` | `/api/clips/register` | Upload a protected original video, create its versioned content and clip-level style embeddings, and save it to the protected catalog. Accepts multipart `file`, with optional `title` and `creator_name` fields. |
 | `GET` | `/api/clips` | List protected originals for the catalog UI. |
 | `GET` | `/api/clips/{clip_id}` | Return public metadata for one protected original. |
 | `DELETE` | `/api/clips/{clip_id}` | Delete one protected original, its GCS object, and its Firestore record. |
@@ -73,6 +73,14 @@ Similarity values returned by `/api/scan` and `/api/scans` are cosine-similarity
 scores, not calibrated infringement probabilities. The current initial verdict
 cutoffs are `high_risk` at `>= 0.75`, `medium_risk` at `0.50`–`< 0.75`, and
 `low_risk` below `0.50`.
+
+Style analysis is a secondary creator-intelligence signal inside `POST /api/scan`.
+Protected clips store a clip-level style embedding during registration. A scan
+checks content similarity first; when content similarity is below the high-risk
+cutoff, it searches the style index and may return a `style_notice`. Style does
+not change the content verdict, produce a copyright conclusion, or claim that
+style similarity proves infringement. OCR-based overlay analysis and transcript
+timing remain deferred.
 
 ### 2. Frontend
 
