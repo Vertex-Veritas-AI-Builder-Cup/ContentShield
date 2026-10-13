@@ -68,11 +68,17 @@ response schemas are available at `/docs` when the backend is running.
 | `DELETE` | `/api/clips/{clip_id}` | Delete one protected original, its GCS object, and its Firestore record. |
 | `POST` | `/api/scan` | Upload a suspicious video, generate query embeddings, search the protected catalog with FAISS, calculate risk verdicts, and persist the scan. Accepts multipart `file`. |
 | `GET` | `/api/scans` | Return recent scan history with the scan ID, top similarity, verdict, and timestamp. |
+| `POST` | `/api/style-match` | Compare bounded editing-style signals for an uploaded video and a protected clip. Accepts multipart `file`, `protected_clip_id`, and optional `transcript`. |
 
 Similarity values returned by `/api/scan` and `/api/scans` are cosine-similarity
 scores, not calibrated infringement probabilities. The current initial verdict
 cutoffs are `high_risk` at `>= 0.75`, `medium_risk` at `0.50`–`< 0.75`, and
 `low_risk` below `0.50`.
+
+Style Match is a separate creator-intelligence prototype. It compares FFmpeg scene
+cuts and optional transcript-based opening-hook cues; it does not reuse content
+embeddings, produce a copyright conclusion, or claim that style similarity proves
+infringement. OCR-based overlay analysis and transcript timing remain deferred.
 
 ### 2. Frontend
 
