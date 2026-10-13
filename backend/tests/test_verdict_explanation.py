@@ -65,6 +65,50 @@ class VerdictExplanationTests(unittest.TestCase):
                 model="test-model",
             )
 
+    def test_reversed_timestamp_is_rejected(self) -> None:
+        """Prevent evidence cards from displaying impossible time ranges."""
+
+        with self.assertRaises(VerdictExplanationError):
+            validate_verdict_explanation_payload(
+                {
+                    "decision": "uncertain",
+                    "explanation": "The evidence is incomplete.",
+                    "evidence": [
+                        {
+                            "query_start_seconds": 4,
+                            "query_end_seconds": 2,
+                            "protected_start_seconds": 0,
+                            "protected_end_seconds": 2,
+                            "observation": "An observation.",
+                        }
+                    ],
+                },
+                model="test-model",
+            )
+
+    def test_evidence_cannot_exceed_video_duration(self) -> None:
+        """Keep model-generated evidence inside the two stored video bounds."""
+
+        with self.assertRaises(VerdictExplanationError):
+            validate_verdict_explanation_payload(
+                {
+                    "decision": "likely_match",
+                    "explanation": "The same sequence is visible.",
+                    "evidence": [
+                        {
+                            "query_start_seconds": 4,
+                            "query_end_seconds": 6,
+                            "protected_start_seconds": 0,
+                            "protected_end_seconds": 2,
+                            "observation": "An observation.",
+                        }
+                    ],
+                },
+                model="test-model",
+                query_duration_seconds=5,
+                protected_duration_seconds=5,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
