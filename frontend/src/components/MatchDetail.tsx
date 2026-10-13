@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MatchResults } from "@/components/MatchResults";
 import {
   EvidenceItem,
@@ -62,13 +62,14 @@ function VideoPanel({
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-[#6f6a62]">Timestamps show up after verification.</p>
+        <p className="mt-2 text-xs text-[#6f6a62]">Timestamps appear after the automated assessment.</p>
       )}
     </div>
   );
 }
 
 /** Show one scan, its videos, and the verdict explanation. */
+
 export function MatchDetail({
   detail,
   suspiciousUrl,
@@ -78,12 +79,51 @@ export function MatchDetail({
   suspiciousUrl: string | null;
   suspiciousTitle: string | null;
 }) {
-  // Start from an explanation already saved on the scan.
+  // Start from anything already saved on the scan. The assessment loads automatically.
   const [explanation, setExplanation] = useState<VerdictExplanation | null>(
     detail?.verdict_explanation ?? null,
   );
   const [explaining, setExplaining] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
+  // Optional details the user can add to the takedown draft.
+  const [creatorName, setCreatorName] = useState("");
+  const [creatorEmail, setCreatorEmail] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [infringingUrl, setInfringingUrl] = useState("");
+
+  // Generate and persist the evidence summary as soon as a matched scan is opened.
+  useEffect(() => {
+    if (!detail?.top_match || explanation) return;
+    const scanId = detail.scan_id;
+    let cancelled = false;
+
+    async function loadExplanation() {
+      setExplaining(true);
+      setExplainError(null);
+      try {
+        const res = await fetch(`${apiBase()}/api/scans/${scanId}/explain-verdict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (!res.ok) throw new Error(await errorMessage(res, "Could not prepare the assessment."));
+        const json = (await res.json()) as { verdict_explanation: VerdictExplanation };
+        if (!cancelled) setExplanation(json.verdict_explanation);
+      } catch (err) {
+        if (!cancelled) {
+          setExplainError(err instanceof Error ? err.message : "Could not prepare the assessment.");
+        }
+      } finally {
+        if (!cancelled) setExplaining(false);
+      }
+    }
+
+    void loadExplanation();
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.scan_id, detail?.top_match, explanation]);
 
   if (!detail) {
     return (
@@ -105,42 +145,10 @@ export function MatchDetail({
   const suspiciousSrc = suspiciousUrl || detail.suspicious_video_url || null;
   const originalSrc = detail.protected_video_url || null;
 
-  // Ask the backend to explain the top match and store that explanation.
-  async function verify() {
-    setExplaining(true);
-    setExplainError(null);
-    try {
-      const res = await fetch(`${apiBase()}/api/scans/${detail!.scan_id}/explain-verdict`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      if (!res.ok) {
-        throw new Error(await errorMessage(res, "Could not verify that match."));
-      }
-      const json = (await res.json()) as { verdict_explanation: VerdictExplanation };
-      setExplanation(json.verdict_explanation);
-    } catch (err) {
-      setExplainError(err instanceof Error ? err.message : "Could not verify that match.");
-    } finally {
-      setExplaining(false);
-    }
-  }
-
   return (
     <div>
       <MatchResults result={detail} />
 
-      {detail.style_notice && (
-        <section className="mt-5 rounded-xl border border-[#f0b429]/30 bg-[#f0b429]/[0.05] p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-[#f0b429]">Style signal</p>
-          <p className="mt-2 text-sm font-medium">{detail.style_notice.message}</p>
-          <p className="mt-1 text-xs text-[#9b958c]">
-            Style similarity {detail.style_notice.style_similarity.toFixed(2)}. This is creator
-            intelligence, not a copyright or legal conclusion.
-          </p>
-        </section>
-      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <VideoPanel
@@ -158,27 +166,17 @@ export function MatchDetail({
       </div>
 
       <section className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">Verdict explanation</h2>
-          <button
-            type="button"
-            disabled={!detail.top_match || explaining}
-            onClick={() => void verify()}
-            className="rounded-full bg-[#f4f1ea] px-4 py-2 text-sm font-medium text-[#10100e] disabled:opacity-40"
-          >
-            {explaining ? "Verifying…" : "Verify match"}
-          </button>
-        </div>
+        <h2 className="text-sm font-medium">Verdict explanation</h2>
         <p className="mt-2 text-xs text-[#9b958c]">Automated assessment. Not a legal verdict.</p>
         {explainError && <p className="mt-3 text-sm text-[#f0b429]">{explainError}</p>}
         {!explanation && !explaining && !explainError && (
           <p className="mt-3 text-sm text-[#9b958c]">
             {detail.top_match
-              ? "Verify the match to read why these clips lined up."
-              : "Nothing to verify until a close original is found."}
+              ? "Preparing the evidence summary…"
+              : "No close original was found to assess."}
           </p>
         )}
-        {explaining && <p className="mt-3 text-sm text-[#9b958c]">Reading the match…</p>}
+        {explaining && <p className="mt-3 text-sm text-[#9b958c]">Preparing the evidence summary…</p>}
         {explanation && (
           <div className="mt-4">
             <p className="text-sm font-medium">{decisionLabel[explanation.decision] ?? explanation.decision}</p>
