@@ -1,0 +1,58 @@
+// Shapes shared by the Check page and the scan API.
+
+export type Verdict = "high_risk" | "medium_risk" | "low_risk";
+
+// One protected clip that a suspicious video was compared with.
+export type ScanMatch = {
+  protected_clip_id: string;
+  protected_title?: string;
+  content_similarity: number;
+  verdict: Verdict;
+  matched_segment_count?: number;
+  segment_coverage?: number;
+};
+
+// One timestamped reason the two clips look alike.
+export type EvidenceItem = {
+  query_start_seconds: number;
+  query_end_seconds: number;
+  protected_start_seconds: number;
+  protected_end_seconds: number;
+  observation: string;
+};
+
+// Gemini's written assessment. This is not a legal decision.
+export type VerdictExplanation = {
+  verdict_explanation_id: string;
+  decision: "likely_match" | "uncertain" | "not_enough_evidence";
+  explanation: string;
+  confidence_note: string;
+  evidence: EvidenceItem[];
+  limitations: string[];
+  model?: string;
+  created_at?: string;
+};
+
+// Full record for one check, including any saved explanation.
+export type ScanDetail = {
+  scan_id: string;
+  suspicious_clip_id?: string;
+  scanned_at?: string;
+  matches: ScanMatch[];
+  top_match: ScanMatch | null;
+  processing_ms?: number;
+  verdict_explanation?: VerdictExplanation | null;
+  suspicious_video_url?: string | null;
+  protected_video_url?: string | null;
+};
+
+// Backend address. Falls back to the local API when no env value is set.
+export function apiBase() {
+  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+}
+
+// Read a FastAPI error message, or use a plain fallback if the body is not text.
+export async function errorMessage(res: Response, fallback: string) {
+  const json = (await res.json().catch(() => ({}))) as { detail?: unknown };
+  return typeof json.detail === "string" ? json.detail : fallback;
+}

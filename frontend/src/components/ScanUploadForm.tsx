@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ScanResult } from "@/components/MatchResults";
+import { ScanDetail } from "@/components/scanTypes";
 
 /** Format a file size for the upload control. */
 function formatSize(bytes: number) {
@@ -10,7 +10,8 @@ function formatSize(bytes: number) {
 }
 
 type Props = {
-  onScanned: (result: ScanResult) => void;
+  // The page needs the file itself so it can play the suspicious video.
+  onScanned: (result: ScanDetail, file: File) => void;
 };
 
 /** Let a user select a suspicious video and submit it to the scan API. */
@@ -60,13 +61,13 @@ export function ScanUploadForm({ onScanned }: Props) {
 
     try {
       const res = await fetch(`${apiUrl}/api/scan`, { method: "POST", body });
-      const json = (await res.json()) as ScanResult & { detail?: string };
+      const json = (await res.json()) as ScanDetail & { detail?: string };
       if (!res.ok) {
         throw new Error(
           typeof json.detail === "string" ? json.detail : "Could not check that file.",
         );
       }
-      onScanned(json);
+      onScanned(json, file);
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";
     } catch (err) {
