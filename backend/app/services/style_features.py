@@ -13,6 +13,9 @@ from app.services.video import VideoProcessingError, video_duration_seconds
 
 
 STYLE_FEATURE_VERSION = "style_features_v1"
+STYLE_EMBEDDING_VERSION = "style_embedding_v1"
+STYLE_EMBEDDING_DIMENSION = 7
+STYLE_MATCH_THRESHOLD = 0.78
 
 
 class StyleFeatureError(RuntimeError):
@@ -126,6 +129,29 @@ def extract_style_features(path: Path, *, transcript: str = "") -> dict:
             "Hook classification is available only when a transcript is supplied.",
         ],
     }
+
+
+def style_embedding_from_features(features: dict) -> list[float]:
+    """Build a normalized-shape, clip-level vector from editing-style signals.
+
+    The vector intentionally excludes visual/content embeddings. It captures
+    coarse pacing and shot-length distribution so it can be stored once for a
+    protected clip and compared lazily during a scan.
+    """
+
+    pacing = features.get("pacing") or {}
+    histogram = pacing.get("shot_length_histogram") or []
+    if len(histogram) != 5:
+        raise StyleFeatureError("Style shot-length histogram must have five bins")
+
+    vector = [
+        min(max(float(pacing.get("cuts_per_minute") or 0.0) / 120.0, 0.0), 1.0),
+        min(max(float(pacing.get("median_shot_seconds") or 0.0) / 10.0, 0.0), 1.0),
+        *[min(max(float(value), 0.0), 1.0) for value in histogram],
+    ]
+    if len(vector) != STYLE_EMBEDDING_DIMENSION or not all(math.isfinite(value) for value in vector):
+        raise StyleFeatureError("Style embedding contains invalid values")
+    return [round(value, 6) for value in vector]
 
 
 def _similarity(left: float, right: float) -> float:

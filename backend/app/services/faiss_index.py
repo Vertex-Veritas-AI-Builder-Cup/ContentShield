@@ -5,12 +5,17 @@ from __future__ import annotations
 import faiss
 import numpy as np
 
-from app.services.firestore_db import list_clip_segment_embeddings
+from app.services.firestore_db import list_clip_segment_embeddings, list_clip_style_embeddings
+from app.services.style_features import STYLE_MATCH_THRESHOLD
 from app.services.verdict import verdict_from_score
 
 
 class SearchIndexError(RuntimeError):
     """Raised when the protected segment catalog cannot be searched."""
+
+
+class StyleSearchError(RuntimeError):
+    """Raised when the optional protected style catalog cannot be searched."""
 
 
 def _bounded_similarity(value: float) -> float:
@@ -128,3 +133,52 @@ def search_video_segments(
 
     results.sort(key=lambda result: result["content_similarity"], reverse=True)
     return results
+
+
+def build_style_index() -> tuple[faiss.Index, list[dict]]:
+    """Build an exact normalized-inner-product index of clip-level styles."""
+
+    try:
+        records = list_clip_style_embeddings()
+    except (TypeError, ValueError) as exc:
+        raise StyleSearchError("Protected style embeddings are malformed") from exc
+    if not records:
+        raise StyleSearchError("No compatible protected style embeddings are available")
+    dimension = int(records[0]["style_embedding_dimension"])
+    matrix = np.asarray([record["style_embedding"] for record in records], dtype=np.float32)
+    if matrix.ndim != 2 or matrix.shape[1] != dimension:
+        raise StyleSearchError("Protected style embedding dimensions do not match")
+    try:
+        matrix = _normalise(matrix)
+    except SearchIndexError as exc:
+        raise StyleSearchError(str(exc)) from exc
+    index = faiss.IndexFlatIP(dimension)
+    index.add(matrix)
+    return index, records
+
+
+def search_style_embeddings(style_embedding: list[float]) -> dict:
+    """Find the closest protected clip by style without affecting content risk."""
+
+    index, records = build_style_index()
+    vector = np.asarray([style_embedding], dtype=np.float32)
+    if vector.ndim != 2 or vector.shape[1] != index.d:
+        raise StyleSearchError("Query and protected style dimensions do not match")
+    try:
+        vector = _normalise(vector)
+    except SearchIndexError as exc:
+        raise StyleSearchError(str(exc)) from exc
+    scores, neighbors = index.search(vector, 1)
+    row = int(neighbors[0][0])
+    if row < 0:
+        raise StyleSearchError("No protected style match was returned")
+    score = _bounded_similarity(scores[0][0])
+    record = records[row]
+    return {
+        "protected_clip_id": record["clip_id"],
+        "protected_title": record["title"],
+        "style_similarity": score,
+        "style_match": score >= STYLE_MATCH_THRESHOLD,
+        "style_threshold": STYLE_MATCH_THRESHOLD,
+        "disclaimer": "Style similarity is not a copyright or legal conclusion.",
+    }

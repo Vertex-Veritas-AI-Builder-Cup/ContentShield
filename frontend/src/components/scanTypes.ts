@@ -45,6 +45,16 @@ export type VerdictExplanation = {
   created_at?: string;
 };
 
+// A secondary creator-intelligence signal, never a copyright verdict.
+export type StyleNotice = {
+  type: "similar_style";
+  protected_clip_id: string;
+  protected_title?: string;
+  style_similarity: number;
+  message: string;
+  disclaimer: string;
+};
+
 // Full record for one check, including any saved explanation.
 export type ScanDetail = {
   scan_id: string;
@@ -53,6 +63,9 @@ export type ScanDetail = {
   matches: ScanMatch[];
   top_match: ScanMatch | null;
   processing_ms?: number;
+  style_evaluated?: boolean;
+  style_skip_reason?: string | null;
+  style_notice?: StyleNotice | null;
   verdict_explanation?: VerdictExplanation | null;
   suspicious_video_url?: string | null;
   protected_video_url?: string | null;

@@ -4,7 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.services.style_features import compare_style_features, extract_style_features
+from app.services.style_features import (
+    STYLE_EMBEDDING_DIMENSION,
+    compare_style_features,
+    extract_style_features,
+    style_embedding_from_features,
+)
 
 
 def _features(*, cuts_per_minute: float, median_shot_seconds: float, hook: str = "unavailable") -> dict:
@@ -32,6 +37,14 @@ class StyleFeatureTests(unittest.TestCase):
         self.assertEqual(result["pacing"]["cut_count"], 3)
         self.assertEqual(result["opening_hook"]["type"], "question")
         self.assertNotIn("embedding", result)
+
+    def test_style_embedding_is_clip_level_and_content_independent(self) -> None:
+        embedding = style_embedding_from_features(
+            _features(cuts_per_minute=30, median_shot_seconds=2)
+        )
+
+        self.assertEqual(len(embedding), STYLE_EMBEDDING_DIMENSION)
+        self.assertTrue(all(0.0 <= value <= 1.0 for value in embedding))
 
     def test_matching_pacing_is_a_format_clone_candidate(self) -> None:
         comparison = compare_style_features(
