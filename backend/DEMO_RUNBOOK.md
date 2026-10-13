@@ -12,8 +12,9 @@ private development bucket; this repository contains no generated media.
 5. Load `/api/scans/{scan_id}`, then call
    `/api/scans/{scan_id}/explain-verdict` when Gemini is enabled.
 6. Call `/api/scans/{scan_id}/dmca` only after an explanation exists.
-7. For the style prototype, call `POST /api/style-match` with an original and a
-   different-topic clip made with the same editing template.
+7. Scan a different-topic clip made with the same editing template. If its
+   content similarity stays below `0.75`, inspect the response for a separate
+   `style_notice`; an exact/high-content match skips style evaluation.
 
 Example registration and scan commands:
 

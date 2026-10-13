@@ -31,7 +31,14 @@ def main() -> int:
             raise RuntimeError(f"Unexpected health response: {health}")
         openapi = _get_json(args.base_url, "/openapi.json")
         paths = openapi.get("paths") or {}
-        required = {"/health", "/api/clips", "/api/scan", "/api/scans", "/api/style-match"}
+        required = {
+            "/health",
+            "/api/clips",
+            "/api/clips/register",
+            "/api/scan",
+            "/api/scans",
+            "/api/scans/{scan_id}",
+        }
         missing = sorted(required - set(paths))
         if missing:
             raise RuntimeError(f"OpenAPI is missing expected paths: {', '.join(missing)}")

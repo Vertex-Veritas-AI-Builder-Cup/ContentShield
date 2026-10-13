@@ -60,9 +60,15 @@ python backend/scripts/smoke_check.py --base-url https://SERVICE_URL
 ## Cost-safe demo settings
 
 - Keep uploads at or below 50 MiB and 90 seconds.
-- Pre-register the small demo catalog before the presentation so content
-  embeddings are not regenerated during every scan.
+- Pre-register the small demo catalog before the presentation so content and
+  clip-level style embeddings are generated once, at registration time.
+- Re-register or backfill older protected clips created before `style_embedding_v1`;
+  scans can still use their content embeddings, but those clips are excluded
+  from the optional style index until a compatible style vector exists.
 - Use FAISS rather than a managed vector endpoint for the prototype.
+- Style matching is lazy: scans with content similarity at or above `0.75`
+  skip style extraction; lower-content scans build the in-memory style index
+  and may return a non-legal `style_notice`.
 - Keep signed media URLs short-lived and never make the bucket public.
 - Treat Gemini model names and embedding dimensions as configuration; verify
   model availability in the selected region before deployment.
