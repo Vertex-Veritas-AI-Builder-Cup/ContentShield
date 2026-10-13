@@ -129,6 +129,14 @@ git commit -m "message"
 git push -u origin feature/xyz
 ```
 
+### Backend deployment and smoke checks
+
+The backend startup, Cloud Run checklist, cost-safe settings, and repeatable demo
+sequence are documented in [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md) and
+[`backend/DEMO_RUNBOOK.md`](backend/DEMO_RUNBOOK.md). Run
+`python backend/scripts/smoke_check.py --base-url <api-url>` after local or Cloud
+Run startup.
+
 ## License
 
 MIT

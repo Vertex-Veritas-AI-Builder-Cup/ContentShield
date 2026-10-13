@@ -28,6 +28,7 @@ class Settings:
     ffprobe_binary: str
     max_upload_bytes: int
     max_video_seconds: int
+    signed_url_minutes: int
 
 
 def get_settings() -> Settings:
@@ -69,5 +70,6 @@ def get_settings() -> Settings:
         ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024))),
         max_video_seconds=int(os.getenv("MAX_VIDEO_SECONDS", "90")),
+        signed_url_minutes=int(os.getenv("SIGNED_URL_MINUTES", "15")),
     )
 
