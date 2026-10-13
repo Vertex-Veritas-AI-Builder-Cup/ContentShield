@@ -70,6 +70,8 @@ def validate_verdict_explanation_payload(
     payload: dict[str, Any],
     *,
     model: str,
+    query_duration_seconds: float | None = None,
+    protected_duration_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Validate and normalize model JSON before it can be stored or displayed."""
 
@@ -94,20 +96,26 @@ def validate_verdict_explanation_payload(
         observation = str(item.get("observation") or "").strip()
         if not observation:
             raise VerdictExplanationError("Every evidence item needs an observation")
+        query_start = _number(item.get("query_start_seconds", 0), "query_start_seconds")
+        query_end = _number(item.get("query_end_seconds", 0), "query_end_seconds")
+        protected_start = _number(
+            item.get("protected_start_seconds", 0), "protected_start_seconds"
+        )
+        protected_end = _number(
+            item.get("protected_end_seconds", 0), "protected_end_seconds"
+        )
+        if query_end < query_start or protected_end < protected_start:
+            raise VerdictExplanationError("Evidence timestamps must have end after start")
+        if query_duration_seconds is not None and query_end > query_duration_seconds:
+            raise VerdictExplanationError("Query evidence exceeds the suspicious video duration")
+        if protected_duration_seconds is not None and protected_end > protected_duration_seconds:
+            raise VerdictExplanationError("Protected evidence exceeds the original video duration")
         evidence.append(
             {
-                "query_start_seconds": _number(
-                    item.get("query_start_seconds", 0), "query_start_seconds"
-                ),
-                "query_end_seconds": _number(
-                    item.get("query_end_seconds", 0), "query_end_seconds"
-                ),
-                "protected_start_seconds": _number(
-                    item.get("protected_start_seconds", 0), "protected_start_seconds"
-                ),
-                "protected_end_seconds": _number(
-                    item.get("protected_end_seconds", 0), "protected_end_seconds"
-                ),
+                "query_start_seconds": query_start,
+                "query_end_seconds": query_end,
+                "protected_start_seconds": protected_start,
+                "protected_end_seconds": protected_end,
                 "observation": observation,
             }
         )
@@ -125,7 +133,9 @@ def validate_verdict_explanation_payload(
             or "This is an automated assessment and requires creator or legal review."
         ).strip(),
         "evidence": evidence,
-        "limitations": [str(item).strip() for item in raw_limitations if str(item).strip()],
+        "limitations": [
+            item.strip() for item in raw_limitations if isinstance(item, str) and item.strip()
+        ],
         "model": model,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -139,6 +149,8 @@ def explain_top_match(
     protected_title: str,
     creator_name: str,
     top_match: dict[str, Any],
+    suspicious_duration_seconds: float | None = None,
+    protected_duration_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Ask Gemini to explain a retrieved match using both private GCS videos."""
 
@@ -226,4 +238,6 @@ is legally infringing, and do not invent URLs, ownership, or timestamps.
     return validate_verdict_explanation_payload(
         _parse_json_response(response_text),
         model=settings.gemini_analysis_model,
+        query_duration_seconds=suspicious_duration_seconds,
+        protected_duration_seconds=protected_duration_seconds,
     )

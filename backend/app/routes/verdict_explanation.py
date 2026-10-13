@@ -48,6 +48,20 @@ def _detail_response(scan: dict[str, Any]) -> dict[str, Any]:
     """Build a frontend-safe detail response without returning embedding vectors."""
 
     top_match = scan.get("top_match") or {}
+    safe_matches = [
+        {
+            key: value
+            for key, value in match.items()
+            if key not in {"embedding", "gcs_uri", "protected_gcs_uri"}
+        }
+        for match in scan.get("matches") or []
+        if isinstance(match, dict)
+    ]
+    safe_top_match = {
+        key: value
+        for key, value in top_match.items()
+        if key not in {"embedding", "gcs_uri", "protected_gcs_uri"}
+    }
     protected_clip = None
     protected_video_url = None
     if top_match.get("protected_clip_id"):
@@ -63,7 +77,13 @@ def _detail_response(scan: dict[str, Any]) -> dict[str, Any]:
         }
 
     return {
-        **{key: value for key, value in scan.items() if key != "suspicious_gcs_uri"},
+        **{
+            key: value
+            for key, value in scan.items()
+            if key not in {"suspicious_gcs_uri", "matches", "top_match"}
+        },
+        "matches": safe_matches,
+        "top_match": safe_top_match or None,
         "protected_clip": safe_protected_clip,
         "media": {
             "protected_video_url": protected_video_url,
@@ -102,6 +122,8 @@ def explain_scan_verdict(scan_id: str):
             protected_title=protected_clip.get("title", ""),
             creator_name=protected_clip.get("creator_name", ""),
             top_match=top_match,
+            suspicious_duration_seconds=scan.get("suspicious_duration_seconds") or None,
+            protected_duration_seconds=protected_clip.get("duration_seconds") or None,
         )
         save_verdict_explanation(scan_id, explanation)
     except GeminiProviderError as exc:
