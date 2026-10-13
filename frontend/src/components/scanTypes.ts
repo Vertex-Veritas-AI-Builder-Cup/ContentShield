@@ -2,6 +2,17 @@
 
 export type Verdict = "high_risk" | "medium_risk" | "low_risk";
 
+// One timestamped segment pair returned by the retrieval pipeline.
+export type MatchedSegment = {
+  query_segment_id?: string;
+  protected_segment_id?: string;
+  query_start_offset_seconds?: number;
+  query_end_offset_seconds?: number;
+  protected_start_offset_seconds?: number;
+  protected_end_offset_seconds?: number;
+  similarity?: number;
+};
+
 // One protected clip that a suspicious video was compared with.
 export type ScanMatch = {
   protected_clip_id: string;
@@ -10,6 +21,7 @@ export type ScanMatch = {
   verdict: Verdict;
   matched_segment_count?: number;
   segment_coverage?: number;
+  matched_segments?: MatchedSegment[];
 };
 
 // One timestamped reason the two clips look alike.

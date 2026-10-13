@@ -1,4 +1,6 @@
-import { ScanDetail, ScanMatch } from "@/components/scanTypes";
+import type { ScanDetail, ScanMatch } from "@/components/scanTypes";
+
+export type { MatchedSegment, ScanMatch, Verdict } from "@/components/scanTypes";
 
 // Colors for the three risk levels returned by the scan.
 const badge: Record<ScanMatch["verdict"], { label: string; className: string }> = {
