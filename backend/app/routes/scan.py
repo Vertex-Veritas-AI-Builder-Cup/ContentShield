@@ -98,6 +98,7 @@ async def scan_video(file: UploadFile = File(...)):
             matches=matches,
             top_match=top_match,
             processing_ms=processing_ms,
+            source_filename=filename,
         )
         persisted = True
         return {

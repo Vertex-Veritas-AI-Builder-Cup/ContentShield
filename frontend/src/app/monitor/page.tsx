@@ -72,7 +72,14 @@ export default function CheckPage() {
           suspiciousTitle={suspiciousTitle}
         />
       </div>
-      <ScanFeed refreshKey={refreshKey} />
+      <ScanFeed
+        refreshKey={refreshKey}
+        onOpen={(scanId) => {
+          setSuspiciousUrl(null);
+          setSuspiciousTitle(null);
+          void openScan(scanId);
+        }}
+      />
     </div>
   );
 }

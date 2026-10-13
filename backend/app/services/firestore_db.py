@@ -238,11 +238,36 @@ def list_scans() -> list[dict]:
                     "top_similarity": similarity,
                     "verdict": verdict,
                     "scanned_at": _as_iso(data.get("scanned_at")),
+                    "protected_title": top.get("protected_title") or "",
+                    "source_filename": data.get("source_filename") or "",
+                    "high_matches": _high_match_names(data.get("matches") or [], top),
                 }
             )
         return scans
     except Exception:
         return []
+
+
+def _high_match_names(matches: list, top: dict) -> list[dict]:
+    """Names and scores for protected clips marked high risk on this scan."""
+
+    found = []
+    for match in matches:
+        if not isinstance(match, dict) or match.get("verdict") != "high_risk":
+            continue
+        found.append(
+            {
+                "protected_title": match.get("protected_title") or match.get("protected_clip_id") or "Untitled",
+                "content_similarity": match.get("content_similarity") or 0,
+            }
+        )
+    if found:
+        return found
+    if top.get("verdict") == "high_risk":
+        title = top.get("protected_title") or top.get("protected_clip_id") or ""
+        if title:
+            return [{"protected_title": title, "content_similarity": top.get("content_similarity") or 0}]
+    return []
 
 
 def save_scan(
@@ -252,6 +277,7 @@ def save_scan(
     matches: list[dict],
     top_match: dict | None,
     processing_ms: int,
+    source_filename: str = "",
 ) -> datetime:
     """Persist one backend scan result and return its timestamp."""
 
@@ -264,6 +290,7 @@ def save_scan(
     db.collection("scans").document(scan_id).set(
         {
             "suspicious_clip_id": suspicious_clip_id,
+            "source_filename": source_filename,
             "matches": matches,
             "top_match": top_match,
             "top_similarity": top_similarity,
