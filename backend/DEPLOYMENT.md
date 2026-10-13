@@ -14,6 +14,7 @@ Set these values in the Cloud Run service environment or a local `backend/.env`:
   `GEMINI_EMBEDDING_LOCATION`
 - `VIDEO_SEGMENT_SECONDS`, `MAX_UPLOAD_BYTES`, and `MAX_VIDEO_SECONDS`
 - `SIGNED_URL_MINUTES` (15 minutes is the cost-safe demo default)
+- `CORS_ORIGINS` as a comma-separated list, including the Vercel frontend URL
 
 Cloud Run should use an attached service account rather than a checked-in JSON
 key. Grant only the permissions needed by the service: bucket-scoped object

@@ -13,6 +13,16 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_ROOT / ".env")
 
 
+def get_cors_origins() -> list[str]:
+    """Return browser origins allowed to call the API, with local defaults."""
+
+    raw = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    )
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 @dataclass(frozen=True)
 class Settings:
     gcp_project_id: str
