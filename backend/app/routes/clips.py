@@ -96,6 +96,7 @@ async def register_clip(
             title=(title or "").strip() or _title_from_filename(filename),
             creator_name=(creator_name or "").strip(),
             gcs_uri=gcs_uri,
+            content_type=content_type,
             embedding_segments=embedding_segments,
             embedding_version=settings.video_embedding_version,
             embedding_model=settings.gemini_video_embedding_model,

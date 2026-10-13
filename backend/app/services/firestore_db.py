@@ -52,6 +52,7 @@ def save_clip(
     embedding_model: str,
     embedding_dimension: int,
     duration_seconds: float,
+    content_type: str = "video/mp4",
     keyframe_count: int = 0,
 ) -> datetime:
     """Persist a registered clip and its versioned video fingerprints."""
@@ -70,6 +71,7 @@ def save_clip(
             "title": title,
             "creator_name": creator_name,
             "gcs_uri": gcs_uri,
+            "content_type": content_type,
             "status": "fingerprinted",
             "embedding_version": embedding_version,
             "embedding_model": embedding_model,
@@ -245,10 +247,41 @@ def list_scans() -> list[dict]:
         return []
 
 
+def get_scan(scan_id: str) -> dict | None:
+    """Fetch one complete scan record without exposing protected embeddings."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    snapshot = db.collection("scans").document(scan_id).get()
+    if not snapshot.exists:
+        return None
+
+    data = snapshot.to_dict() or {}
+    return {
+        "scan_id": snapshot.id,
+        "suspicious_clip_id": data.get("suspicious_clip_id") or "",
+        "suspicious_gcs_uri": data.get("suspicious_gcs_uri") or "",
+        "source_filename": data.get("source_filename") or "",
+        "content_type": data.get("content_type") or "",
+        "matches": data.get("matches") or [],
+        "top_match": data.get("top_match"),
+        "top_similarity": float(data.get("top_similarity") or 0.0),
+        "verdict": data.get("verdict") or "low_risk",
+        "processing_ms": int(data.get("processing_ms") or 0),
+        "scanned_at": _as_iso(data.get("scanned_at")),
+        "verdict_explanation": data.get("verdict_explanation"),
+        "dmca_draft": data.get("dmca_draft"),
+    }
+
+
 def save_scan(
     *,
     scan_id: str,
     suspicious_clip_id: str,
+    suspicious_gcs_uri: str = "",
+    source_filename: str = "",
+    content_type: str = "",
     matches: list[dict],
     top_match: dict | None,
     processing_ms: int,
@@ -264,6 +297,9 @@ def save_scan(
     db.collection("scans").document(scan_id).set(
         {
             "suspicious_clip_id": suspicious_clip_id,
+            "suspicious_gcs_uri": suspicious_gcs_uri,
+            "source_filename": source_filename,
+            "content_type": content_type,
             "matches": matches,
             "top_match": top_match,
             "top_similarity": top_similarity,
@@ -273,6 +309,26 @@ def save_scan(
         }
     )
     return scanned_at
+
+
+def save_verdict_explanation(scan_id: str, explanation: dict) -> None:
+    """Attach one validated verdict explanation to an existing scan document."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    db.collection("scans").document(scan_id).update(
+        {"verdict_explanation": explanation}
+    )
+
+
+def save_dmca_draft(scan_id: str, draft: dict) -> None:
+    """Attach one generated DMCA draft to an existing scan document."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    db.collection("scans").document(scan_id).update({"dmca_draft": draft})
 
 
 def _as_iso(value: object) -> str:

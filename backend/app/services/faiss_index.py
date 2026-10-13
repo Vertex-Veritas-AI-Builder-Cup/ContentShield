@@ -95,6 +95,14 @@ def search_video_segments(
                     {
                         "query_segment_id": query_segment.get("segment_id") or f"segment_{query_number:03d}",
                         "protected_segment_id": record["segment_id"],
+                        "query_start_offset_seconds": float(
+                            query_segment.get("start_offset_seconds", 0.0)
+                        ),
+                        "query_end_offset_seconds": float(
+                            query_segment.get("end_offset_seconds", 0.0)
+                        ),
+                        "protected_start_offset_seconds": record["start_offset_seconds"],
+                        "protected_end_offset_seconds": record["end_offset_seconds"],
                         "similarity": score,
                     }
                 )
