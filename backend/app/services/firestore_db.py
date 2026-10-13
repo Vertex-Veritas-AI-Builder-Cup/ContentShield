@@ -161,6 +161,8 @@ def get_clip(clip_id: str) -> dict | None:
             "created_at": str(data.get("created_at") or ""),
             "gcs_uri": data.get("gcs_uri") or "",
             "creator_name": data.get("creator_name") or "",
+            "content_type": data.get("content_type") or "",
+            "duration_seconds": float(data.get("duration_seconds") or 0.0),
         }
     except Exception:
         return None
@@ -264,6 +266,9 @@ def get_scan(scan_id: str) -> dict | None:
         "suspicious_gcs_uri": data.get("suspicious_gcs_uri") or "",
         "source_filename": data.get("source_filename") or "",
         "content_type": data.get("content_type") or "",
+        "suspicious_duration_seconds": float(
+            data.get("suspicious_duration_seconds") or 0.0
+        ),
         "matches": data.get("matches") or [],
         "top_match": data.get("top_match"),
         "top_similarity": float(data.get("top_similarity") or 0.0),
@@ -282,6 +287,7 @@ def save_scan(
     suspicious_gcs_uri: str = "",
     source_filename: str = "",
     content_type: str = "",
+    suspicious_duration_seconds: float = 0.0,
     matches: list[dict],
     top_match: dict | None,
     processing_ms: int,
@@ -300,6 +306,7 @@ def save_scan(
             "suspicious_gcs_uri": suspicious_gcs_uri,
             "source_filename": source_filename,
             "content_type": content_type,
+            "suspicious_duration_seconds": float(suspicious_duration_seconds),
             "matches": matches,
             "top_match": top_match,
             "top_similarity": top_similarity,
