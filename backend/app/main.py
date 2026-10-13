@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import get_cors_origins
 from app.routes.clips import router as clips_router
 from app.routes.scan import router as scan_router
 from app.routes.verdict_explanation import router as verdict_explanation_router
@@ -17,10 +18,7 @@ app.include_router(verdict_explanation_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

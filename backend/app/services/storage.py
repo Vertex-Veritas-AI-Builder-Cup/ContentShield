@@ -33,10 +33,10 @@ def delete_gcs_uri(gcs_uri: str) -> None:
     client.bucket(bucket_name).blob(blob_name).delete()
 
 
-def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int = 15) -> str | None:
+def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str | None:
     """Create a short-lived browser URL for a private GCS video when possible."""
 
-    if not gcs_uri.startswith("gs://") or minutes <= 0:
+    if not gcs_uri.startswith("gs://"):
         return None
     bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")
     if not bucket_name or not blob_name:
@@ -44,6 +44,9 @@ def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int = 15) -> str | None:
 
     try:
         settings = get_settings()
+        minutes = settings.signed_url_minutes if minutes is None else minutes
+        if minutes <= 0:
+            return None
         client = storage.Client(project=settings.gcp_project_id)
         blob = client.bucket(bucket_name).blob(blob_name)
         # Signed URLs let the browser play a private object without making the

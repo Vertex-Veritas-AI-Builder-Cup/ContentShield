@@ -13,6 +13,16 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_ROOT / ".env")
 
 
+def get_cors_origins() -> list[str]:
+    """Return browser origins allowed to call the API, with local defaults."""
+
+    raw = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    )
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 @dataclass(frozen=True)
 class Settings:
     gcp_project_id: str
@@ -28,6 +38,7 @@ class Settings:
     ffprobe_binary: str
     max_upload_bytes: int
     max_video_seconds: int
+    signed_url_minutes: int
 
 
 def get_settings() -> Settings:
@@ -69,5 +80,6 @@ def get_settings() -> Settings:
         ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024))),
         max_video_seconds=int(os.getenv("MAX_VIDEO_SECONDS", "90")),
+        signed_url_minutes=int(os.getenv("SIGNED_URL_MINUTES", "15")),
     )
 

@@ -129,6 +129,22 @@ git commit -m "message"
 git push -u origin feature/xyz
 ```
 
+### Backend deployment and smoke checks
+
+The backend startup, Cloud Run checklist, cost-safe settings, and repeatable demo
+sequence are documented in [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md) and
+[`backend/DEMO_RUNBOOK.md`](backend/DEMO_RUNBOOK.md). Run
+`python backend/scripts/smoke_check.py --base-url <api-url>` after local or Cloud
+Run startup.
+
+### Recommended deployment split
+
+Deploy the backend Docker image to Cloud Run and deploy the Next.js frontend to
+Vercel. In Vercel, set the project root to `frontend` and configure
+`NEXT_PUBLIC_API_URL` to the Cloud Run URL. For local testing, run the backend
+container on port `8000` and start the frontend with `npm run dev` in `frontend`.
+The frontend Docker image is optional and is not part of the recommended path.
+
 ## License
 
 MIT
