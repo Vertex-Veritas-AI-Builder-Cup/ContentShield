@@ -66,7 +66,7 @@ export default function CheckPage() {
         {detailError && <p className="mb-3 text-sm text-[#f0b429]">{detailError}</p>}
         {/* New key resets the detail form when a different scan is opened. */}
         <MatchDetail
-          key={`${detail?.scan_id ?? "empty"}-${detail?.verdict_explanation?.verdict_explanation_id ?? ""}`}
+          key={`${detail?.scan_id ?? "empty"}-${detail?.verdict_explanation?.verdict_explanation_id ?? ""}-${detail?.dmca_draft?.draft_id ?? ""}`}
           detail={detail}
           suspiciousUrl={suspiciousUrl}
           suspiciousTitle={suspiciousTitle}
