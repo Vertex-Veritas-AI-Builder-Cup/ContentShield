@@ -54,11 +54,8 @@ def save_clip(
     duration_seconds: float,
     content_type: str = "video/mp4",
     keyframe_count: int = 0,
-    style_embedding: list[float] | None = None,
-    style_embedding_version: str = "",
-    style_embedding_dimension: int = 0,
 ) -> datetime:
-    """Persist a registered clip and its content/style fingerprints."""
+    """Persist a registered clip and its content fingerprint."""
 
     if not embedding_segments:
         raise ValueError("At least one video embedding segment is required")
@@ -84,18 +81,6 @@ def save_clip(
             "keyframe_count": keyframe_count,
             "created_at": created_at,
     }
-    if style_embedding is not None:
-        if not style_embedding_version or style_embedding_dimension <= 0:
-            raise ValueError("Style embedding metadata is required")
-        if len(style_embedding) != style_embedding_dimension:
-            raise ValueError("Style embedding dimension does not match its vector")
-        clip_data.update(
-            {
-                "style_embedding": style_embedding,
-                "style_embedding_version": style_embedding_version,
-                "style_embedding_dimension": style_embedding_dimension,
-            }
-        )
     db.collection("clips").document(clip_id).set(clip_data)
     return created_at
 
@@ -136,21 +121,13 @@ def finalize_clip(
     embedding_version: str,
     embedding_model: str,
     embedding_dimension: int,
-    style_embedding: list[float],
-    style_embedding_version: str,
-    style_embedding_dimension: int,
 ) -> None:
-    """Attach completed content/style fingerprints to a pending clip."""
+    """Attach the completed content fingerprint to a pending clip."""
 
     if not embedding_segments:
         raise ValueError("At least one video embedding segment is required")
     if embedding_dimension <= 0:
         raise ValueError("Embedding dimension must be greater than zero")
-    if not style_embedding or style_embedding_dimension <= 0:
-        raise ValueError("Style embedding metadata is required")
-    if len(style_embedding) != style_embedding_dimension:
-        raise ValueError("Style embedding dimension does not match its vector")
-
     from google.cloud import firestore
 
     db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
@@ -162,9 +139,6 @@ def finalize_clip(
             "embedding_dimension": embedding_dimension,
             "embedding_segments": embedding_segments,
             "segment_count": len(embedding_segments),
-            "style_embedding": style_embedding,
-            "style_embedding_version": style_embedding_version,
-            "style_embedding_dimension": style_embedding_dimension,
             "processing_error": firestore.DELETE_FIELD,
         }
     )
@@ -238,36 +212,6 @@ def list_clip_segment_embeddings() -> list[dict]:
                     "embedding_dimension": dimension,
                 }
             )
-    return records
-
-
-def list_clip_style_embeddings() -> list[dict]:
-    """Return clip-level style vectors compatible with the current style path."""
-
-    from app.services.style_features import STYLE_EMBEDDING_DIMENSION, STYLE_EMBEDDING_VERSION
-    from google.cloud import firestore
-
-    db = firestore.Client(project=get_settings().gcp_project_id)
-    records: list[dict] = []
-    for doc in db.collection("clips").stream():
-        data = doc.to_dict() or {}
-        if (
-            data.get("style_embedding_version") != STYLE_EMBEDDING_VERSION
-            or int(data.get("style_embedding_dimension") or 0) != STYLE_EMBEDDING_DIMENSION
-        ):
-            continue
-        vector = data.get("style_embedding")
-        if not isinstance(vector, list) or len(vector) != STYLE_EMBEDDING_DIMENSION:
-            raise ValueError(f"Clip {doc.id} has an invalid style embedding")
-        records.append(
-            {
-                "clip_id": doc.id,
-                "title": data.get("title") or "",
-                "style_embedding": [float(value) for value in vector],
-                "style_embedding_version": STYLE_EMBEDDING_VERSION,
-                "style_embedding_dimension": STYLE_EMBEDDING_DIMENSION,
-            }
-        )
     return records
 
 
@@ -364,7 +308,6 @@ def list_scans() -> list[dict]:
             if similarity is None:
                 similarity = top.get("content_similarity") or 0
             verdict = data.get("verdict") or top.get("verdict") or "low_risk"
-            style_match = data.get("style_match") or {}
             scans.append(
                 {
                     "scan_id": doc.id,
@@ -374,10 +317,6 @@ def list_scans() -> list[dict]:
                     "protected_title": top.get("protected_title") or "",
                     "source_filename": data.get("source_filename") or "",
                     "high_matches": _high_match_names(data.get("matches") or [], top),
-                    "style_evaluated": bool(data.get("style_evaluated")),
-                    "style_protected_title": style_match.get("protected_title") or "",
-                    "style_similarity": style_match.get("style_similarity"),
-                    "style_match": style_match.get("style_match"),
                 }
             )
         return scans
@@ -411,10 +350,6 @@ def get_scan(scan_id: str) -> dict | None:
         "verdict": data.get("verdict") or "low_risk",
         "processing_ms": int(data.get("processing_ms") or 0),
         "scanned_at": _as_iso(data.get("scanned_at")),
-        "style_evaluated": bool(data.get("style_evaluated")),
-        "style_skip_reason": data.get("style_skip_reason"),
-        "style_match": data.get("style_match"),
-        "style_notice": data.get("style_notice"),
         "verdict_explanation": data.get("verdict_explanation"),
         "dmca_draft": data.get("dmca_draft"),
         "promoted_clip_id": data.get("promoted_clip_id") or "",
@@ -456,10 +391,6 @@ def save_scan(
     matches: list[dict],
     top_match: dict | None,
     processing_ms: int,
-    style_evaluated: bool = False,
-    style_skip_reason: str | None = None,
-    style_match: dict | None = None,
-    style_notice: dict | None = None,
 ) -> datetime:
     """Persist one backend scan result and return its timestamp."""
 
@@ -482,10 +413,6 @@ def save_scan(
             "verdict": verdict,
             "processing_ms": int(processing_ms),
             "scanned_at": scanned_at,
-            "style_evaluated": style_evaluated,
-            "style_skip_reason": style_skip_reason,
-            "style_match": style_match,
-            "style_notice": style_notice,
         }
     )
     return scanned_at

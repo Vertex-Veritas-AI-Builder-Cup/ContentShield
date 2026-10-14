@@ -12,19 +12,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from app.config import get_settings
 from app.services.faiss_index import (
     SearchIndexError,
-    StyleSearchError,
     build_segment_index,
-    search_style_embeddings,
     search_video_segments,
 )
 from app.services.firestore_db import list_scans, save_scan
 from app.services.storage import delete_gcs_uri, upload_file
-from app.services.style_features import (
-    STYLE_MATCH_THRESHOLD,
-    StyleFeatureError,
-    extract_style_features,
-    style_embedding_from_features,
-)
 from app.services.video import VideoProcessingError, video_duration_seconds
 from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
 
@@ -64,65 +56,6 @@ def _evaluate_content(
     )
     matches = search_video_segments(query_segments)
     return matches, matches[0] if matches else None
-
-
-def _evaluate_style(
-    temp_path: Path,
-    *,
-    scan_id: str,
-) -> tuple[bool, str | None, dict | None, dict | None]:
-    """Extract and search style in one worker thread without affecting content risk."""
-
-    try:
-        style_features = extract_style_features(temp_path)
-        style_embedding = style_embedding_from_features(style_features)
-        style_match = search_style_embeddings(style_embedding)
-        style_notice = None
-        if style_match["style_similarity"] >= STYLE_MATCH_THRESHOLD:
-            title = style_match.get("protected_title") or style_match["protected_clip_id"]
-            style_notice = {
-                "type": "similar_style",
-                "protected_clip_id": style_match["protected_clip_id"],
-                "protected_title": style_match.get("protected_title") or "",
-                "style_similarity": style_match["style_similarity"],
-                "message": f"Similar editing style detected with {title}.",
-                "disclaimer": "Style similarity is not a copyright or legal conclusion.",
-            }
-        return True, None, style_match, style_notice
-    except StyleSearchError:
-        return False, "no_compatible_style_embeddings", None, None
-    except StyleFeatureError:
-        logger.warning("Style analysis unavailable for scan %s", scan_id, exc_info=True)
-        return False, "style_analysis_unavailable", None, None
-
-
-async def _evaluate_content_and_style(
-    *,
-    suspicious_uri: str,
-    temp_path: Path,
-    duration_seconds: float,
-    content_type: str,
-    scan_id: str,
-) -> tuple[list[dict], dict | None, bool, str | None, dict | None, dict | None]:
-    """Run content and style analysis concurrently after the upload completes."""
-
-    content_task = asyncio.to_thread(
-        _evaluate_content,
-        suspicious_uri,
-        duration_seconds=duration_seconds,
-        content_type=content_type,
-    )
-    style_task = asyncio.to_thread(_evaluate_style, temp_path, scan_id=scan_id)
-    (matches, top_match), style_result = await asyncio.gather(content_task, style_task)
-    style_evaluated, style_skip_reason, style_match, style_notice = style_result
-    return (
-        matches,
-        top_match,
-        style_evaluated,
-        style_skip_reason,
-        style_match,
-        style_notice,
-    )
 
 
 @router.post("/api/scan", status_code=status.HTTP_200_OK)
@@ -169,19 +102,11 @@ async def scan_video(file: UploadFile = File(...)):
         # leave a suspicious object behind.
         build_segment_index()
         suspicious_uri = upload_file(temp_path, destination, content_type)
-        (
-            matches,
-            top_match,
-            style_evaluated,
-            style_skip_reason,
-            style_match,
-            style_notice,
-        ) = await _evaluate_content_and_style(
-            suspicious_uri=suspicious_uri,
-            temp_path=temp_path,
+        matches, top_match = await asyncio.to_thread(
+            _evaluate_content,
+            suspicious_uri,
             duration_seconds=duration_seconds,
             content_type=content_type,
-            scan_id=scan_id,
         )
         processing_ms = int((time.monotonic() - started) * 1000)
         scanned_at = save_scan(
@@ -194,10 +119,6 @@ async def scan_video(file: UploadFile = File(...)):
             matches=matches,
             top_match=top_match,
             processing_ms=processing_ms,
-            style_evaluated=style_evaluated,
-            style_skip_reason=style_skip_reason,
-            style_match=style_match,
-            style_notice=style_notice,
         )
         persisted = True
         return {
@@ -207,10 +128,6 @@ async def scan_video(file: UploadFile = File(...)):
             "matches": matches,
             "top_match": top_match,
             "processing_ms": processing_ms,
-            "style_evaluated": style_evaluated,
-            "style_skip_reason": style_skip_reason,
-            "style_match": style_match,
-            "style_notice": style_notice,
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

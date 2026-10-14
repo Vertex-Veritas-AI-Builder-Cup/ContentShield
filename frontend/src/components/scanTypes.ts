@@ -24,16 +24,6 @@ export type ScanMatch = {
   matched_segments?: MatchedSegment[];
 };
 
-// The closest protected clip in the independent clip-level style search.
-export type StyleMatch = {
-  protected_clip_id: string;
-  protected_title?: string;
-  style_similarity: number;
-  style_match?: boolean;
-  style_threshold?: number;
-  disclaimer?: string;
-};
-
 // One timestamped reason the two clips look alike.
 export type EvidenceItem = {
   query_start_seconds: number;
@@ -53,16 +43,6 @@ export type VerdictExplanation = {
   limitations: string[];
   model?: string;
   created_at?: string;
-};
-
-// A secondary creator-intelligence signal, never a copyright verdict.
-export type StyleNotice = {
-  type: "similar_style";
-  protected_clip_id: string;
-  protected_title?: string;
-  style_similarity: number;
-  message: string;
-  disclaimer: string;
 };
 
 // A takedown notice draft the user can review, copy, or download.
@@ -89,10 +69,6 @@ export type ScanDetail = {
   matches: ScanMatch[];
   top_match: ScanMatch | null;
   processing_ms?: number;
-  style_evaluated?: boolean;
-  style_skip_reason?: string | null;
-  style_match?: StyleMatch | null;
-  style_notice?: StyleNotice | null;
   verdict_explanation?: VerdictExplanation | null;
   dmca_draft?: DmcaDraft | null;
   promoted_clip_id?: string | null;

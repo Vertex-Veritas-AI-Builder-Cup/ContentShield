@@ -8,7 +8,7 @@ from app.routes.verdict_explanation import router as verdict_explanation_router
 
 app = FastAPI(
     title="ContentShield API",
-    description="Real-time IP theft and style clone detection",
+    description="Real-time video content similarity detection",
     version="0.1.0",
 )
 

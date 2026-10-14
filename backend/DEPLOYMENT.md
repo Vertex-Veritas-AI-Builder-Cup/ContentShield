@@ -62,17 +62,11 @@ python backend/scripts/smoke_check.py --base-url https://SERVICE_URL
 ## Cost-safe demo settings
 
 - Keep uploads at or below 50 MiB and 90 seconds.
-- Pre-register the small demo catalog before the presentation so content and
-  clip-level style embeddings are generated once, at registration time.
-- Re-register or backfill older protected clips created before `style_embedding_v1`;
-  scans can still use their content embeddings, but those clips are excluded
-  from the optional style index until a compatible style vector exists.
+- Pre-register the small demo catalog before the presentation so content
+  embeddings are generated once, at registration time.
 - Use FAISS rather than a managed vector endpoint for the prototype.
-- Style matching runs independently for every scan. Each scan builds the
-  in-memory style index and may return a non-legal `style_notice`, regardless
-  of its content-similarity score.
-- Original registration uploads the video synchronously, then runs content and
-  style fingerprinting in a process-local background task. Only clips with
+- Original registration uploads the video synchronously, then runs content
+  fingerprinting in a process-local background task. Only clips with
   `status: fingerprinted` are searchable; use Cloud Tasks or Pub/Sub for a
   durable production worker if the service can scale to zero during jobs.
 - Keep signed media URLs short-lived and never make the bucket public.
