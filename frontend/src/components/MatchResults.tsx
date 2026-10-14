@@ -35,10 +35,6 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
   }
 
   const top = result.top_match;
-  // Highest content similarity first, in case the API order changes.
-  const matches = [...(result.matches ?? [])].sort(
-    (a, b) => b.content_similarity - a.content_similarity,
-  );
   const styleMatch = result.style_match;
 
   return (
@@ -113,35 +109,71 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
               )}
             </>
           )}
-          {result.style_notice && (
-            <div className="mt-4 rounded-xl border border-[#f0b429]/30 bg-[#f0b429]/10 px-3 py-3">
-              <p className="text-sm text-[#f0b429]">{result.style_notice.message}</p>
-              <p className="mt-1 text-xs text-[#9b958c]">{result.style_notice.disclaimer}</p>
-            </div>
-          )}
         </section>
       </div>
-
-      {matches.length > 0 && (
-        <section className="mt-6">
-          <h2 className="text-sm font-medium">Other content matches</h2>
-          <ul className="mt-3">
-            {matches.map((match) => (
-              <li
-                key={match.protected_clip_id}
-                className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm"
-              >
-                <span className="min-w-0 truncate">
-                  {match.protected_title || match.protected_clip_id}
-                </span>
-                <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
-                  {score(match.content_similarity)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
+  );
+}
+
+/** List secondary content candidates after the primary review workflow. */
+export function OtherContentMatches({ result }: { result: ScanDetail }) {
+  const matches = [...(result.matches ?? [])]
+    .filter((match) => match.protected_clip_id !== result.top_match?.protected_clip_id)
+    .sort((a, b) => b.content_similarity - a.content_similarity);
+
+  if (matches.length === 0) return null;
+
+  return (
+    <section className="mt-10 rounded-2xl border border-white/10 bg-[#181816] p-5 sm:p-6">
+      <div>
+        <h2 className="text-sm font-medium">Other content matches</h2>
+        <p className="mt-1 text-xs text-[#6f6a62]">Lower-ranked originals from the same check</p>
+      </div>
+      <ul className="mt-4">
+        {matches.map((match) => (
+          <li
+            key={match.protected_clip_id}
+            className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm first:border-t-0 first:pt-0"
+          >
+            <span className="min-w-0 truncate">
+              {match.protected_title || match.protected_clip_id}
+            </span>
+            <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
+              {score(match.content_similarity)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** List secondary style candidates after the primary review workflow. */
+export function OtherStyleMatches({ result }: { result: ScanDetail }) {
+  const matches = result.style_match?.other_style_matches ?? [];
+  if (matches.length === 0) return null;
+
+  return (
+    <section className="mt-4 rounded-2xl border border-white/10 bg-[#181816] p-5 sm:p-6">
+      <div>
+        <h2 className="text-sm font-medium">Other style matches</h2>
+        <p className="mt-1 text-xs text-[#6f6a62]">Lower-ranked editing-style candidates from the same check</p>
+      </div>
+      <ul className="mt-4">
+        {matches.map((match) => (
+          <li
+            key={match.protected_clip_id}
+            className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm first:border-t-0 first:pt-0"
+          >
+            <span className="min-w-0 truncate">
+              {match.protected_title || match.protected_clip_id}
+            </span>
+            <span className={match.style_match ? "text-[#f0b429]" : "text-[#9b958c]"}>
+              {score(match.style_similarity)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
