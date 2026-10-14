@@ -17,14 +17,13 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(verdict_from_score(0.50), "medium_risk")
         self.assertEqual(verdict_from_score(0.49), "low_risk")
 
-    def test_content_score_is_bounded_and_centered(self) -> None:
-        """The public score is bounded while preserving cosine ordering."""
+    def test_content_score_is_bounded_without_rescaling(self) -> None:
+        """Composite scores stay bounded without a nonlinear transform."""
 
         self.assertEqual(content_score_from_cosine(-1.0), 0.0)
-        self.assertEqual(content_score_from_cosine(0.60), 0.0)
-        self.assertGreater(content_score_from_cosine(0.70), 0.0)
-        self.assertLess(content_score_from_cosine(0.70), 1.0)
-        self.assertLessEqual(content_score_from_cosine(1.0), 1.0)
+        self.assertEqual(content_score_from_cosine(0.60), 0.60)
+        self.assertEqual(content_score_from_cosine(0.70), 0.70)
+        self.assertEqual(content_score_from_cosine(1.0), 1.0)
 
 
 if __name__ == "__main__":

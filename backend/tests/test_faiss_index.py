@@ -63,8 +63,11 @@ class FaissIndexTests(unittest.TestCase):
             )
 
         self.assertEqual([result["protected_clip_id"] for result in results], ["clip_a", "clip_b"])
+        expected_composite = (expected + 1.0) / 2.0
         self.assertAlmostEqual(
-            results[0]["content_similarity"], content_score_from_cosine(expected), places=6
+            results[0]["content_similarity"],
+            content_score_from_cosine(expected_composite),
+            places=6,
         )
 
     def test_cropped_copy_is_reduced_by_partial_coverage(self) -> None:
@@ -86,7 +89,7 @@ class FaissIndexTests(unittest.TestCase):
         top = results[0]
         self.assertEqual(top["protected_clip_id"], "clip_original")
         self.assertEqual(top["verdict"], "medium_risk")
-        self.assertLess(top["content_similarity"], content_score_from_cosine(0.8))
+        self.assertAlmostEqual(top["content_similarity"], 0.65, places=6)
         self.assertEqual(top["matched_segment_count"], 1)
         self.assertAlmostEqual(top["segment_coverage"], 0.5, places=6)
 

@@ -121,10 +121,10 @@ def search_video_segments(
         ]
         scores = sorted(all_scores, reverse=True)
         top_scores = scores[:3]
-        strength = sum(top_scores) / len(top_scores)
+        strength = max(0.0, min(1.0, sum(top_scores) / len(top_scores)))
         matched_count = len(clip["matched_segments"])
         coverage = matched_count / query_count
-        similarity = strength * (0.5 + (0.5 * coverage))
+        similarity = (0.5 * strength) + (0.5 * coverage)
         results.append(
             {
                 "protected_clip_id": clip["protected_clip_id"],
