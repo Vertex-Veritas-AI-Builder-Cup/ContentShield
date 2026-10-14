@@ -30,10 +30,14 @@ class DmcaDraftTests(unittest.TestCase):
             creator_name="A Creator",
             creator_email="creator@example.com",
             platform="Example Platform",
+            protected_media_url="https://signed/original",
+            suspicious_media_url="https://signed/suspicious",
         )
 
         self.assertIn("Similarity score: 0.910", draft["body"])
         self.assertIn("same subject and text", draft["body"])
+        self.assertIn("Protected original video: https://signed/original", draft["body"])
+        self.assertIn("Suspicious video: https://signed/suspicious", draft["body"])
         self.assertEqual(draft["disclaimer"], "Draft for creator and legal review; not legal advice.")
 
     def test_missing_explanation_is_rejected(self) -> None:

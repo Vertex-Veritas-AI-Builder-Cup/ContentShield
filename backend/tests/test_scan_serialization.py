@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from app.routes.verdict_explanation import _detail_response
+from app.routes.verdict_explanation import DmcaRequest, _detail_response, create_dmca_draft
 
 
 class ScanSerializationTests(unittest.TestCase):
@@ -47,6 +47,43 @@ class ScanSerializationTests(unittest.TestCase):
         self.assertNotIn("gcs_uri", response["protected_clip"])
         self.assertEqual(response["media"]["protected_video_url"], "https://signed/original")
         self.assertEqual(response["media"]["suspicious_video_url"], "https://signed/query")
+
+    @patch("app.routes.verdict_explanation.save_dmca_draft")
+    @patch("app.routes.verdict_explanation.generate_dmca_draft")
+    @patch("app.routes.verdict_explanation.signed_url_for_gcs_uri")
+    @patch("app.routes.verdict_explanation.get_clip")
+    @patch("app.routes.verdict_explanation._load_scan_or_404")
+    def test_dmca_draft_receives_signed_evidence_urls(
+        self,
+        load_scan_mock,
+        get_clip_mock,
+        signed_url_mock,
+        generate_mock,
+        save_mock,
+    ) -> None:
+        """Use freshly generated signed links without exposing private GCS URIs."""
+
+        load_scan_mock.return_value = {
+            "top_match": {"protected_clip_id": "clip_original"},
+            "suspicious_gcs_uri": "gs://private/query.mp4",
+            "verdict_explanation": {"explanation": "Evidence exists."},
+        }
+        get_clip_mock.return_value = {"gcs_uri": "gs://private/original.mp4"}
+        signed_url_mock.side_effect = ["https://signed/original", "https://signed/query"]
+        generate_mock.return_value = {"draft_id": "dmca_1"}
+
+        response = create_dmca_draft("scan_1", DmcaRequest())
+
+        self.assertEqual(response["dmca_draft"]["draft_id"], "dmca_1")
+        self.assertEqual(
+            generate_mock.call_args.kwargs["protected_media_url"],
+            "https://signed/original",
+        )
+        self.assertEqual(
+            generate_mock.call_args.kwargs["suspicious_media_url"],
+            "https://signed/query",
+        )
+        save_mock.assert_called_once_with("scan_1", {"draft_id": "dmca_1"})
 
 
 if __name__ == "__main__":

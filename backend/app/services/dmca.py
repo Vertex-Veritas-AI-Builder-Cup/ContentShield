@@ -27,6 +27,8 @@ def generate_dmca_draft(
     platform: str = "",
     original_url: str = "",
     infringing_url: str = "",
+    protected_media_url: str = "",
+    suspicious_media_url: str = "",
 ) -> dict[str, Any]:
     """Build a factual draft from stored verdict evidence without inventing legal facts."""
 
@@ -64,6 +66,10 @@ Creator: {_text(creator_name)}
 Platform: {_text(platform)}
 Original URL: {_text(original_url)}
 Potentially infringing URL: {_text(infringing_url)}
+
+ContentShield evidence links (temporary signed URLs):
+- Protected original video: {_text(protected_media_url)}
+- Suspicious video: {_text(suspicious_media_url)}
 
 ContentShield assessment:
 - Similarity score: {similarity:.3f}

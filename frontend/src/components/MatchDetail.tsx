@@ -301,13 +301,13 @@ export function MatchDetail({
           <input
             value={originalUrl}
             onChange={(event) => setOriginalUrl(event.target.value)}
-            placeholder="Original URL"
+            placeholder="Original page URL (optional)"
             className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
           />
           <input
             value={infringingUrl}
             onChange={(event) => setInfringingUrl(event.target.value)}
-            placeholder="Copied video URL"
+            placeholder="Copied-video page URL (optional)"
             className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429] sm:col-span-2"
           />
           <button
