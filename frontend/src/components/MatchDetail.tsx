@@ -146,8 +146,9 @@ export function MatchDetail({
     (item) => `Original ${range(item.protected_start_seconds, item.protected_end_seconds)}`,
   );
   // Prefer the file just dropped. Use an API link only if the page has one.
-  const suspiciousSrc = suspiciousUrl || detail.suspicious_video_url || null;
-  const originalSrc = detail.protected_video_url || null;
+  const suspiciousSrc =
+    suspiciousUrl || detail.media?.suspicious_video_url || detail.suspicious_video_url || null;
+  const originalSrc = detail.media?.protected_video_url || detail.protected_video_url || null;
 
   // Send only the fields the user filled in, then show the returned draft.
   async function createDraft(event: FormEvent) {

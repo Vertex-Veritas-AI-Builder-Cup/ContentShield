@@ -24,6 +24,16 @@ export type ScanMatch = {
   matched_segments?: MatchedSegment[];
 };
 
+// The closest protected clip in the independent clip-level style search.
+export type StyleMatch = {
+  protected_clip_id: string;
+  protected_title?: string;
+  style_similarity: number;
+  style_match?: boolean;
+  style_threshold?: number;
+  disclaimer?: string;
+};
+
 // One timestamped reason the two clips look alike.
 export type EvidenceItem = {
   query_start_seconds: number;
@@ -64,6 +74,12 @@ export type DmcaDraft = {
   created_at?: string;
 };
 
+// Short-lived signed URLs returned by the scan detail endpoint.
+export type ScanMedia = {
+  suspicious_video_url?: string | null;
+  protected_video_url?: string | null;
+};
+
 // Full record for one check, including any saved explanation or draft.
 export type ScanDetail = {
   scan_id: string;
@@ -74,9 +90,12 @@ export type ScanDetail = {
   processing_ms?: number;
   style_evaluated?: boolean;
   style_skip_reason?: string | null;
+  style_match?: StyleMatch | null;
   style_notice?: StyleNotice | null;
   verdict_explanation?: VerdictExplanation | null;
   dmca_draft?: DmcaDraft | null;
+  media?: ScanMedia;
+  // Kept as fallbacks for older API responses.
   suspicious_video_url?: string | null;
   protected_video_url?: string | null;
 };

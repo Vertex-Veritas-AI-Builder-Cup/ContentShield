@@ -16,6 +16,7 @@ from app.config import get_settings
 
 ALLOWED_DECISIONS = {"likely_match", "uncertain", "not_enough_evidence"}
 MAX_EVIDENCE_ITEMS = 8
+DURATION_TOLERANCE_SECONDS = 0.05
 
 
 class VerdictExplanationError(RuntimeError):
@@ -88,6 +89,7 @@ def validate_verdict_explanation_payload(
         raise VerdictExplanationError("Verdict-explanation evidence must be a list")
 
     evidence: list[dict[str, Any]] = []
+    discarded_duration_items = 0
     for item in raw_evidence[:MAX_EVIDENCE_ITEMS]:
         if not isinstance(item, dict):
             raise VerdictExplanationError(
@@ -107,9 +109,17 @@ def validate_verdict_explanation_payload(
         if query_end < query_start or protected_end < protected_start:
             raise VerdictExplanationError("Evidence timestamps must have end after start")
         if query_duration_seconds is not None and query_end > query_duration_seconds:
-            raise VerdictExplanationError("Query evidence exceeds the suspicious video duration")
+            if query_end - query_duration_seconds <= DURATION_TOLERANCE_SECONDS:
+                query_end = query_duration_seconds
+            else:
+                discarded_duration_items += 1
+                continue
         if protected_duration_seconds is not None and protected_end > protected_duration_seconds:
-            raise VerdictExplanationError("Protected evidence exceeds the original video duration")
+            if protected_end - protected_duration_seconds <= DURATION_TOLERANCE_SECONDS:
+                protected_end = protected_duration_seconds
+            else:
+                discarded_duration_items += 1
+                continue
         evidence.append(
             {
                 "query_start_seconds": query_start,
@@ -124,6 +134,14 @@ def validate_verdict_explanation_payload(
     if not isinstance(raw_limitations, list):
         raise VerdictExplanationError("Verdict-explanation limitations must be a list")
 
+    limitations = [
+        item.strip() for item in raw_limitations if isinstance(item, str) and item.strip()
+    ]
+    if discarded_duration_items:
+        limitations.append(
+            f"{discarded_duration_items} model-provided evidence range(s) exceeded the stored video duration and were omitted."
+        )
+
     return {
         "verdict_explanation_id": f"explain_{uuid4().hex[:12]}",
         "decision": decision,
@@ -133,9 +151,7 @@ def validate_verdict_explanation_payload(
             or "This is an automated assessment and requires creator or legal review."
         ).strip(),
         "evidence": evidence,
-        "limitations": [
-            item.strip() for item in raw_limitations if isinstance(item, str) and item.strip()
-        ],
+        "limitations": limitations,
         "model": model,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -160,6 +176,16 @@ def explain_top_match(
         raise VerdictExplanationError("The protected video does not have a GCS URI")
 
     settings = get_settings()
+    suspicious_duration = (
+        f"{suspicious_duration_seconds:.3f}"
+        if suspicious_duration_seconds is not None
+        else "unknown"
+    )
+    protected_duration = (
+        f"{protected_duration_seconds:.3f}"
+        if protected_duration_seconds is not None
+        else "unknown"
+    )
     prompt = f"""
 You are ContentShield's verdict-explanation assistant. Compare the protected original
 video with the suspicious video and explain whether the retrieved match is
@@ -167,6 +193,8 @@ credible. This is an evidence summary, not a legal conclusion.
 
 Protected title: {protected_title or "Untitled original"}
 Creator: {creator_name or "Unknown"}
+Suspicious video duration: {suspicious_duration} seconds
+Protected video duration: {protected_duration} seconds
 Retrieval result: {json.dumps(top_match, default=str)}
 
 Return only JSON with this shape:
@@ -177,9 +205,9 @@ Return only JSON with this shape:
   "evidence": [
     {{
       "query_start_seconds": 0,
-      "query_end_seconds": 5,
+      "query_end_seconds": 1,
       "protected_start_seconds": 0,
-      "protected_end_seconds": 5,
+      "protected_end_seconds": 1,
       "observation": "visible, concrete comparison"
     }}
   ],
@@ -187,7 +215,12 @@ Return only JSON with this shape:
 }}
 
 Use only visible or explicitly provided evidence. Do not say that the content
-is legally infringing, and do not invent URLs, ownership, or timestamps.
+is legally infringing, and do not invent URLs, ownership, or timestamps. Every
+query timestamp must be between 0 and {suspicious_duration} seconds, and every
+protected timestamp must be between 0 and {protected_duration} seconds. Do not
+copy the example timestamps above when they do not fit the actual durations. If
+there is no valid timestamped evidence, return an empty evidence list and state
+that limitation instead.
 """.strip()
 
     content = [

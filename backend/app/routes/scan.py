@@ -26,7 +26,6 @@ from app.services.style_features import (
 )
 from app.services.video import VideoProcessingError, video_duration_seconds
 from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
-from app.services.verdict import HIGH_RISK_THRESHOLD
 
 
 router = APIRouter()
@@ -36,10 +35,10 @@ ALLOWED_CONTENT_TYPES = {"video/mp4", "video/quicktime"}
 ALLOWED_SUFFIXES = {".mp4", ".mov"}
 
 
-def _should_evaluate_style(top_match: dict | None) -> bool:
-    """Evaluate style only when content matching did not already find a strong copy."""
+def _should_evaluate_style(_top_match: dict | None) -> bool:
+    """Always evaluate style independently from the content-similarity result."""
 
-    return not top_match or float(top_match.get("content_similarity") or 0.0) < HIGH_RISK_THRESHOLD
+    return True
 
 
 async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:

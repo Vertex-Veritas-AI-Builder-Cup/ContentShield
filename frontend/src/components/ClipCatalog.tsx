@@ -43,6 +43,12 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
     void load();
   }, [load, refreshKey]);
 
+  useEffect(() => {
+    if (!clips.some((clip) => clip.status === "processing")) return;
+    const timer = window.setTimeout(() => void load(), 5000);
+    return () => window.clearTimeout(timer);
+  }, [clips, load]);
+
   /** Delete one protected original after the user confirms the action. */
   async function remove(clipId: string) {
     setDeletingId(clipId);
@@ -92,7 +98,18 @@ export function ClipCatalog({ refreshKey = 0 }: { refreshKey?: number }) {
             key={clip.clip_id}
             className="group flex items-center justify-between border-t border-white/10 py-3 transition-colors hover:bg-white/[0.03]"
           >
-            <span className="min-w-0 truncate pr-4">{clip.title || "Untitled"}</span>
+            <span className="min-w-0 truncate pr-4">
+              <span className="block truncate">{clip.title || "Untitled"}</span>
+              {clip.status !== "fingerprinted" && (
+                <span
+                  className={`mt-1 block text-xs ${
+                    clip.status === "failed" ? "text-[#e36a6a]" : "text-[#f0b429]"
+                  }`}
+                >
+                  {clip.status === "failed" ? "Fingerprinting failed" : "Fingerprinting in progress"}
+                </span>
+              )}
+            </span>
             {pendingDelete === clip.clip_id ? (
               <span className="flex shrink-0 items-center gap-3 text-xs">
                 <button

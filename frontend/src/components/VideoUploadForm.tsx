@@ -6,6 +6,7 @@ type RegisterResponse = {
   clip_id: string;
   title?: string;
   status: string;
+  message?: string;
 };
 
 type Props = {
@@ -27,7 +28,7 @@ export function VideoUploadForm({ onRegistered }: Props) {
   const [seconds, setSeconds] = useState<number | null>(null);
   const [over, setOver] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{ status: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -83,7 +84,7 @@ export function VideoUploadForm({ onRegistered }: Props) {
           typeof json.detail === "string" ? json.detail : "Could not save that file.",
         );
       }
-      setSaved(json.clip_id);
+      setSaved({ status: json.status });
       setFile(null);
       setTitle("");
       if (inputRef.current) inputRef.current.value = "";
@@ -180,7 +181,9 @@ export function VideoUploadForm({ onRegistered }: Props) {
       </div>
 
       {saved && (
-        <p className="mt-4 text-sm text-[#c8e6c4]">Saved. It is on your shelf.</p>
+        <p className="mt-4 text-sm text-[#c8e6c4]">
+          Uploaded. Fingerprinting is running in the background; it will become searchable when ready.
+        </p>
       )}
       {error && <p className="mt-4 text-sm text-[#f0b429]">{error}</p>}
     </form>
