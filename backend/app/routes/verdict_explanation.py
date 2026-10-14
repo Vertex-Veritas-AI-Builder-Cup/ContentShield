@@ -139,6 +139,12 @@ def create_dmca_draft(scan_id: str, request: DmcaRequest):
 
     scan = _load_scan_or_404(scan_id)
     verdict_explanation = scan.get("verdict_explanation") or {}
+    top_match = scan.get("top_match") or {}
+    protected_clip = get_clip(top_match.get("protected_clip_id", ""))
+    protected_media_url = signed_url_for_gcs_uri(
+        (protected_clip or {}).get("gcs_uri", "")
+    )
+    suspicious_media_url = signed_url_for_gcs_uri(scan.get("suspicious_gcs_uri", ""))
     try:
         draft = generate_dmca_draft(
             scan=scan,
@@ -148,6 +154,8 @@ def create_dmca_draft(scan_id: str, request: DmcaRequest):
             platform=request.platform,
             original_url=request.original_url,
             infringing_url=request.infringing_url,
+            protected_media_url=protected_media_url or "",
+            suspicious_media_url=suspicious_media_url or "",
         )
         save_dmca_draft(scan_id, draft)
     except DmcaDraftError as exc:

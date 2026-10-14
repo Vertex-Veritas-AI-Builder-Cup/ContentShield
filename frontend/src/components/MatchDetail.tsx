@@ -146,8 +146,9 @@ export function MatchDetail({
     (item) => `Original ${range(item.protected_start_seconds, item.protected_end_seconds)}`,
   );
   // Prefer the file just dropped. Use an API link only if the page has one.
-  const suspiciousSrc = suspiciousUrl || detail.suspicious_video_url || null;
-  const originalSrc = detail.protected_video_url || null;
+  const suspiciousSrc =
+    suspiciousUrl || detail.media?.suspicious_video_url || detail.suspicious_video_url || null;
+  const originalSrc = detail.media?.protected_video_url || detail.protected_video_url || null;
 
   // Send only the fields the user filled in, then show the returned draft.
   async function createDraft(event: FormEvent) {
@@ -300,13 +301,13 @@ export function MatchDetail({
           <input
             value={originalUrl}
             onChange={(event) => setOriginalUrl(event.target.value)}
-            placeholder="Original URL"
+            placeholder="Original page URL (optional)"
             className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
           />
           <input
             value={infringingUrl}
             onChange={(event) => setInfringingUrl(event.target.value)}
-            placeholder="Copied video URL"
+            placeholder="Copied-video page URL (optional)"
             className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429] sm:col-span-2"
           />
           <button

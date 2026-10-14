@@ -34,6 +34,7 @@ class Settings:
     gemini_embedding_location: str
     video_embedding_version: str
     video_segment_seconds: int
+    video_embedding_concurrency: int
     ffmpeg_binary: str
     ffprobe_binary: str
     max_upload_bytes: int
@@ -76,6 +77,9 @@ def get_settings() -> Settings:
         ).strip(),
         video_embedding_version="video_segment_v1",
         video_segment_seconds=int(os.getenv("VIDEO_SEGMENT_SECONDS", "5")),
+        video_embedding_concurrency=int(
+            os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "4")
+        ),
         ffmpeg_binary=os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg",
         ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024))),

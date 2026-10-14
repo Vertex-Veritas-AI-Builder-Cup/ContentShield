@@ -100,6 +100,90 @@ def save_clip(
     return created_at
 
 
+def save_pending_clip(
+    *,
+    clip_id: str,
+    title: str,
+    creator_name: str,
+    gcs_uri: str,
+    content_type: str,
+    duration_seconds: float,
+) -> datetime:
+    """Persist an uploaded original while background fingerprinting is running."""
+
+    from google.cloud import firestore
+
+    created_at = datetime.now(timezone.utc)
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("clips").document(clip_id).set(
+        {
+            "title": title,
+            "creator_name": creator_name,
+            "gcs_uri": gcs_uri,
+            "content_type": content_type,
+            "status": "processing",
+            "duration_seconds": duration_seconds,
+            "created_at": created_at,
+        }
+    )
+    return created_at
+
+
+def finalize_clip(
+    *,
+    clip_id: str,
+    embedding_segments: list[dict],
+    embedding_version: str,
+    embedding_model: str,
+    embedding_dimension: int,
+    style_embedding: list[float],
+    style_embedding_version: str,
+    style_embedding_dimension: int,
+) -> None:
+    """Attach completed content/style fingerprints to a pending clip."""
+
+    if not embedding_segments:
+        raise ValueError("At least one video embedding segment is required")
+    if embedding_dimension <= 0:
+        raise ValueError("Embedding dimension must be greater than zero")
+    if not style_embedding or style_embedding_dimension <= 0:
+        raise ValueError("Style embedding metadata is required")
+    if len(style_embedding) != style_embedding_dimension:
+        raise ValueError("Style embedding dimension does not match its vector")
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("clips").document(clip_id).update(
+        {
+            "status": "fingerprinted",
+            "embedding_version": embedding_version,
+            "embedding_model": embedding_model,
+            "embedding_dimension": embedding_dimension,
+            "embedding_segments": embedding_segments,
+            "segment_count": len(embedding_segments),
+            "style_embedding": style_embedding,
+            "style_embedding_version": style_embedding_version,
+            "style_embedding_dimension": style_embedding_dimension,
+            "processing_error": firestore.DELETE_FIELD,
+        }
+    )
+
+
+def mark_clip_failed(clip_id: str, error: str) -> None:
+    """Mark a background fingerprinting job as failed without deleting the upload."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("clips").document(clip_id).update(
+        {
+            "status": "failed",
+            "processing_error": error[:240],
+        }
+    )
+
+
 def list_clip_segment_embeddings() -> list[dict]:
     """Return flattened segment vectors for the current video-embedding path.
 
@@ -280,6 +364,7 @@ def list_scans() -> list[dict]:
             if similarity is None:
                 similarity = top.get("content_similarity") or 0
             verdict = data.get("verdict") or top.get("verdict") or "low_risk"
+            style_match = data.get("style_match") or {}
             scans.append(
                 {
                     "scan_id": doc.id,
@@ -289,6 +374,10 @@ def list_scans() -> list[dict]:
                     "protected_title": top.get("protected_title") or "",
                     "source_filename": data.get("source_filename") or "",
                     "high_matches": _high_match_names(data.get("matches") or [], top),
+                    "style_evaluated": bool(data.get("style_evaluated")),
+                    "style_protected_title": style_match.get("protected_title") or "",
+                    "style_similarity": style_match.get("style_similarity"),
+                    "style_match": style_match.get("style_match"),
                 }
             )
         return scans

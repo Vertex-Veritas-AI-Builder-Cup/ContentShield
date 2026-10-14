@@ -5,10 +5,17 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
 
 from app.config import get_settings
-from app.services.firestore_db import delete_clip, get_clip, list_clips, save_clip
+from app.services.firestore_db import (
+    delete_clip,
+    finalize_clip,
+    get_clip,
+    list_clips,
+    mark_clip_failed,
+    save_pending_clip,
+)
 from app.services.storage import delete_gcs_uri, upload_file
 from app.services.style_features import (
     STYLE_EMBEDDING_VERSION,
@@ -46,13 +53,56 @@ async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:
     return total
 
 
-@router.post("/api/clips/register", status_code=status.HTTP_201_CREATED)
+def _fingerprint_clip_in_background(
+    *,
+    clip_id: str,
+    temp_path: Path,
+    gcs_uri: str,
+    duration_seconds: float,
+    content_type: str,
+    settings,
+) -> None:
+    """Build both fingerprints and finalize a pending clip after the response."""
+
+    try:
+        style_features = extract_style_features(temp_path)
+        style_embedding = style_embedding_from_features(style_features)
+        embedding_segments = embed_video_segments(
+            gcs_uri,
+            duration_seconds=duration_seconds,
+            mime_type=content_type,
+        )
+        if not embedding_segments:
+            raise VideoEmbeddingError("No video embedding segments were generated")
+        finalize_clip(
+            clip_id=clip_id,
+            embedding_segments=embedding_segments,
+            embedding_version=settings.video_embedding_version,
+            embedding_model=settings.gemini_video_embedding_model,
+            embedding_dimension=len(embedding_segments[0]["embedding"]),
+            style_embedding=style_embedding,
+            style_embedding_version=STYLE_EMBEDDING_VERSION,
+            style_embedding_dimension=len(style_embedding),
+        )
+        logger.info("Finished fingerprinting clip %s", clip_id)
+    except Exception as exc:
+        logger.exception("Failed to fingerprint clip %s in the background", clip_id)
+        try:
+            mark_clip_failed(clip_id, str(exc) or type(exc).__name__)
+        except Exception:
+            logger.exception("Could not mark clip %s as failed", clip_id)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+@router.post("/api/clips/register", status_code=status.HTTP_200_OK)
 async def register_clip(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
     creator_name: str | None = Form(default=None),
 ):
-    """Register an original video, fingerprint it, and persist its metadata."""
+    """Upload an original synchronously and fingerprint it in the background."""
 
     try:
         settings = get_settings()
@@ -65,7 +115,7 @@ async def register_clip(
 
     clip_id = f"clip_{uuid4().hex[:12]}"
     gcs_uri = ""
-    persisted = False
+    background_started = False
     temp_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -81,9 +131,6 @@ async def register_clip(
             raise ValueError(
                 f"Video must be {settings.max_video_seconds} seconds or shorter"
             )
-        style_features = extract_style_features(temp_path)
-        style_embedding = style_embedding_from_features(style_features)
-
         destination = f"originals/{clip_id}{suffix if suffix in ALLOWED_SUFFIXES else '.mp4'}"
         content_type = file.content_type or (
             "video/quicktime" if suffix == ".mov" else "video/mp4"
@@ -93,38 +140,31 @@ async def register_clip(
             destination,
             content_type,
         )
-        embedding_segments = embed_video_segments(
-            gcs_uri,
-            duration_seconds=duration_seconds,
-            mime_type=content_type,
-        )
-        embedding_dimension = len(embedding_segments[0]["embedding"])
-        created_at = save_clip(
+        clip_title = (title or "").strip() or _title_from_filename(filename)
+        created_at = save_pending_clip(
             clip_id=clip_id,
-            title=(title or "").strip() or _title_from_filename(filename),
+            title=clip_title,
             creator_name=(creator_name or "").strip(),
             gcs_uri=gcs_uri,
             content_type=content_type,
-            embedding_segments=embedding_segments,
-            embedding_version=settings.video_embedding_version,
-            embedding_model=settings.gemini_video_embedding_model,
-            embedding_dimension=embedding_dimension,
             duration_seconds=duration_seconds,
-            style_embedding=style_embedding,
-            style_embedding_version=STYLE_EMBEDDING_VERSION,
-            style_embedding_dimension=len(style_embedding),
         )
-        persisted = True
+        background_tasks.add_task(
+            _fingerprint_clip_in_background,
+            clip_id=clip_id,
+            temp_path=temp_path,
+            gcs_uri=gcs_uri,
+            duration_seconds=duration_seconds,
+            content_type=content_type,
+            settings=settings,
+        )
+        background_started = True
         return {
             "clip_id": clip_id,
-            "title": (title or "").strip() or _title_from_filename(filename),
+            "title": clip_title,
             "gcs_uri": gcs_uri,
-            "status": "fingerprinted",
-            "embedding_dimensions": embedding_dimension,
-            "embedding_version": settings.video_embedding_version,
-            "segment_count": len(embedding_segments),
-            "style_embedding_version": STYLE_EMBEDDING_VERSION,
-            "style_embedding_dimension": len(style_embedding),
+            "status": "processing",
+            "message": "Video uploaded. Content and style fingerprinting is running in the background.",
             "created_at": created_at.isoformat(),
         }
     except ValueError as exc:
@@ -135,13 +175,13 @@ async def register_clip(
         logger.exception("Failed to register clip %s", clip_id)
         raise HTTPException(status_code=502, detail="Could not register the video") from exc
     finally:
-        if gcs_uri and not persisted:
+        if gcs_uri and not background_started:
             # Firestore failures should not leave an orphaned original behind.
             try:
                 delete_gcs_uri(gcs_uri)
             except Exception:
                 logger.warning("Could not clean up %s", gcs_uri, exc_info=True)
-        if temp_path is not None:
+        if temp_path is not None and not background_started:
             temp_path.unlink(missing_ok=True)
 
 

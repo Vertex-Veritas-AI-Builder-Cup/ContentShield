@@ -12,7 +12,8 @@ Set these values in the Cloud Run service environment or a local `backend/.env`:
 - `GCP_PROJECT_ID`, `GCP_LOCATION`, and `GCS_BUCKET_DEV`
 - `GEMINI_ANALYSIS_MODEL`, `GEMINI_VIDEO_EMBEDDING_MODEL`, and
   `GEMINI_EMBEDDING_LOCATION`
-- `VIDEO_SEGMENT_SECONDS`, `MAX_UPLOAD_BYTES`, and `MAX_VIDEO_SECONDS`
+- `VIDEO_SEGMENT_SECONDS`, `VIDEO_EMBEDDING_CONCURRENCY`, `MAX_UPLOAD_BYTES`,
+  and `MAX_VIDEO_SECONDS`
 - `SIGNED_URL_MINUTES` (15 minutes is the cost-safe demo default)
 - `CORS_ORIGINS` as a comma-separated list, including the Vercel frontend URL
 
@@ -67,9 +68,13 @@ python backend/scripts/smoke_check.py --base-url https://SERVICE_URL
   scans can still use their content embeddings, but those clips are excluded
   from the optional style index until a compatible style vector exists.
 - Use FAISS rather than a managed vector endpoint for the prototype.
-- Style matching is lazy: scans with content similarity at or above `0.75`
-  skip style extraction; lower-content scans build the in-memory style index
-  and may return a non-legal `style_notice`.
+- Style matching runs independently for every scan. Each scan builds the
+  in-memory style index and may return a non-legal `style_notice`, regardless
+  of its content-similarity score.
+- Original registration uploads the video synchronously, then runs content and
+  style fingerprinting in a process-local background task. Only clips with
+  `status: fingerprinted` are searchable; use Cloud Tasks or Pub/Sub for a
+  durable production worker if the service can scale to zero during jobs.
 - Keep signed media URLs short-lived and never make the bucket public.
 - Treat Gemini model names and embedding dimensions as configuration; verify
   model availability in the selected region before deployment.

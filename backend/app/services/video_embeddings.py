@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from google import genai
@@ -13,6 +14,9 @@ from app.config import get_settings
 
 class VideoEmbeddingError(RuntimeError):
     """Raised when a video segment cannot be embedded."""
+
+
+MAX_VIDEO_EMBEDDING_CONCURRENCY = 8
 
 
 def _client() -> genai.Client:
@@ -42,17 +46,64 @@ def _embedding_values(response: Any) -> list[float]:
     return [float(value) for value in values]
 
 
+def _embed_segment(
+    gcs_uri: str,
+    *,
+    start_seconds: float,
+    end_seconds: float,
+    segment_number: int,
+    mime_type: str,
+    model: str,
+) -> list[float]:
+    """Request one segment embedding with an isolated SDK client."""
+
+    content = types.Content(
+        parts=[
+            types.Part(
+                file_data=types.FileData(
+                    file_uri=gcs_uri,
+                    mime_type=mime_type,
+                ),
+                video_metadata=types.VideoMetadata(
+                    fps=0.5,
+                    start_offset=_format_offset(start_seconds),
+                    end_offset=_format_offset(end_seconds),
+                ),
+            )
+        ]
+    )
+    client: genai.Client | None = None
+    try:
+        client = _client()
+        response = client.models.embed_content(
+            model=model,
+            contents=[content],
+        )
+        return _embedding_values(response)
+    except VideoEmbeddingError:
+        raise
+    except Exception as exc:
+        raise VideoEmbeddingError(
+            f"Could not embed video segment {segment_number}"
+        ) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+
 def embed_video_segments(
     gcs_uri: str,
     *,
     duration_seconds: float,
     mime_type: str,
 ) -> list[dict]:
-    """Create one direct multimodal embedding for each video segment.
+    """Create ordered segment embeddings with bounded parallel requests.
 
-    The protected and suspicious paths call this function with the same model,
-    segment length, and input format. The returned vectors are intentionally
-    provider-neutral so the FAISS layer does not depend on the Gen AI SDK.
+    The provider calls run concurrently, but the returned list remains ordered
+    by segment number so downstream matching and evidence timestamps are stable.
     """
 
     if not gcs_uri.startswith("gs://"):
@@ -74,58 +125,57 @@ def embed_video_segments(
     segment_seconds = settings.video_segment_seconds
     if segment_seconds <= 0:
         raise VideoEmbeddingError("VIDEO_SEGMENT_SECONDS must be greater than zero")
+    if settings.video_embedding_concurrency <= 0:
+        raise VideoEmbeddingError(
+            "VIDEO_EMBEDDING_CONCURRENCY must be greater than zero"
+        )
 
-    client = _client()
-    segments: list[dict] = []
-    embedding_dimension: int | None = None
+    segment_specs: list[tuple[int, float, float]] = []
     start = 0.0
     segment_number = 0
-
     while start < duration_seconds:
         end = min(start + segment_seconds, duration_seconds)
-        content = types.Content(
-            parts=[
-                types.Part(
-                    file_data=types.FileData(
-                        file_uri=gcs_uri,
-                        mime_type=mime_type,
-                    ),
-                    video_metadata=types.VideoMetadata(
-                        fps=0.5,
-                        start_offset=_format_offset(start),
-                        end_offset=_format_offset(end),
-                    ),
-                )
-            ]
-        )
-        try:
-            response = client.models.embed_content(
-                model=settings.gemini_video_embedding_model,
-                contents=[content],
-            )
-            values = _embedding_values(response)
-            if embedding_dimension is None:
-                embedding_dimension = len(values)
-            elif len(values) != embedding_dimension:
-                raise VideoEmbeddingError(
-                    "Video embedding dimensions changed between segments"
-                )
-        except VideoEmbeddingError:
-            raise
-        except Exception as exc:
-            raise VideoEmbeddingError(
-                f"Could not embed video segment {segment_number}"
-            ) from exc
-
-        segments.append(
-            {
-                "segment_id": f"segment_{segment_number:03d}",
-                "start_offset_seconds": start,
-                "end_offset_seconds": end,
-                "embedding": values,
-            }
-        )
+        segment_specs.append((segment_number, start, end))
         segment_number += 1
         start = end
 
-    return segments
+    worker_count = min(
+        settings.video_embedding_concurrency,
+        MAX_VIDEO_EMBEDDING_CONCURRENCY,
+        len(segment_specs),
+    )
+
+    def embed_spec(spec: tuple[int, float, float]) -> list[float]:
+        number, segment_start, segment_end = spec
+        return _embed_segment(
+            gcs_uri,
+            start_seconds=segment_start,
+            end_seconds=segment_end,
+            segment_number=number,
+            mime_type=mime_type,
+            model=settings.gemini_video_embedding_model,
+        )
+
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        values_by_segment = list(executor.map(embed_spec, segment_specs))
+
+    embedding_dimension = len(values_by_segment[0])
+    if embedding_dimension <= 0:
+        raise VideoEmbeddingError("Gemini returned an empty video embedding")
+    for values in values_by_segment:
+        if len(values) != embedding_dimension:
+            raise VideoEmbeddingError(
+                "Video embedding dimensions changed between segments"
+            )
+
+    return [
+        {
+            "segment_id": f"segment_{number:03d}",
+            "start_offset_seconds": segment_start,
+            "end_offset_seconds": segment_end,
+            "embedding": values,
+        }
+        for (number, segment_start, segment_end), values in zip(
+            segment_specs, values_by_segment
+        )
+    ]
