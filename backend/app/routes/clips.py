@@ -6,17 +6,25 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
+from pydantic import BaseModel
 
 from app.config import get_settings
 from app.services.firestore_db import (
     delete_clip,
     finalize_clip,
     get_clip,
+    get_scan,
     list_clips,
     mark_clip_failed,
     save_pending_clip,
+    save_scan_promotion,
 )
-from app.services.storage import delete_gcs_uri, upload_file
+from app.services.storage import (
+    delete_gcs_uri,
+    download_gcs_uri,
+    move_gcs_uri,
+    upload_file,
+)
 from app.services.style_features import (
     STYLE_EMBEDDING_VERSION,
     StyleFeatureError,
@@ -31,6 +39,13 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_CONTENT_TYPES = {"video/mp4", "video/quicktime"}
 ALLOWED_SUFFIXES = {".mp4", ".mov"}
+
+
+class PromoteScanRequest(BaseModel):
+    """Optional metadata used when a checked upload becomes a protected original."""
+
+    title: str = ""
+    creator_name: str = ""
 
 
 def _title_from_filename(filename: str | None) -> str:
@@ -200,6 +215,112 @@ def get_clip_by_id(clip_id: str):
     if clip is None:
         raise HTTPException(status_code=404, detail="Clip not found")
     return clip
+
+
+@router.post("/api/scans/{scan_id}/move-to-original", status_code=status.HTTP_200_OK)
+def move_scan_to_original(
+    scan_id: str,
+    request: PromoteScanRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Move a checked upload into the protected catalog and fingerprint it in the background."""
+
+    scan = get_scan(scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    existing_clip_id = scan.get("promoted_clip_id") or ""
+    if existing_clip_id:
+        existing_clip = get_clip(existing_clip_id) or {}
+        return {
+            "scan_id": scan_id,
+            "clip_id": existing_clip_id,
+            "title": existing_clip.get("title") or scan.get("promoted_title") or "",
+            "status": existing_clip.get("status") or "processing",
+            "already_promoted": True,
+        }
+
+    source_uri = scan.get("suspicious_gcs_uri") or ""
+    if not source_uri.startswith("gs://"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This scan has no stored video to move",
+        )
+
+    filename = scan.get("source_filename") or "suspicious.mp4"
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_SUFFIXES:
+        suffix = ".mp4"
+    clip_id = f"clip_{uuid4().hex[:12]}"
+    title = (request.title or "").strip() or _title_from_filename(filename)
+    content_type = scan.get("content_type") or (
+        "video/quicktime" if suffix == ".mov" else "video/mp4"
+    )
+    destination = f"originals/{clip_id}{suffix}"
+    original_uri = ""
+    temp_path: Path | None = None
+    background_started = False
+    try:
+        original_uri = move_gcs_uri(source_uri, destination)
+        with tempfile.NamedTemporaryFile(
+            prefix=f"{clip_id}_",
+            suffix=suffix,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+        download_gcs_uri(original_uri, temp_path)
+        duration_seconds = float(scan.get("suspicious_duration_seconds") or 0.0)
+        if duration_seconds <= 0:
+            raise ValueError("The scan has no valid video duration")
+        created_at = save_pending_clip(
+            clip_id=clip_id,
+            title=title,
+            creator_name=(request.creator_name or "").strip(),
+            gcs_uri=original_uri,
+            content_type=content_type,
+            duration_seconds=duration_seconds,
+        )
+        promoted_at = save_scan_promotion(
+            scan_id,
+            clip_id=clip_id,
+            title=title,
+            original_gcs_uri=original_uri,
+        )
+        settings = get_settings()
+        background_tasks.add_task(
+            _fingerprint_clip_in_background,
+            clip_id=clip_id,
+            temp_path=temp_path,
+            gcs_uri=original_uri,
+            duration_seconds=duration_seconds,
+            content_type=content_type,
+            settings=settings,
+        )
+        background_started = True
+        return {
+            "scan_id": scan_id,
+            "clip_id": clip_id,
+            "title": title,
+            "status": "processing",
+            "already_promoted": False,
+            "created_at": created_at.isoformat(),
+            "promoted_at": promoted_at.isoformat(),
+            "message": "Moved to originals. Content and style fingerprinting is running in the background.",
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to move scan %s to originals", scan_id)
+        raise HTTPException(status_code=502, detail="Could not move that video to originals") from exc
+    finally:
+        if temp_path is not None and not background_started:
+            temp_path.unlink(missing_ok=True)
+        if original_uri and not background_started:
+            try:
+                # Restore the source path when promotion setup failed after the move.
+                move_gcs_uri(original_uri, source_uri.removeprefix("gs://").split("/", 1)[1])
+            except Exception:
+                logger.warning("Could not restore moved video %s", original_uri, exc_info=True)
 
 
 @router.delete("/api/clips/{clip_id}")

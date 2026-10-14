@@ -74,10 +74,12 @@ export function MatchDetail({
   detail,
   suspiciousUrl,
   suspiciousTitle,
+  onPromoted,
 }: {
   detail: ScanDetail | null;
   suspiciousUrl: string | null;
   suspiciousTitle: string | null;
+  onPromoted?: () => void;
 }) {
   // Start from anything already saved on the scan. The assessment loads automatically.
   const [explanation, setExplanation] = useState<VerdictExplanation | null>(
@@ -88,6 +90,14 @@ export function MatchDetail({
   const [drafting, setDrafting] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
+  const [promotedClipId, setPromotedClipId] = useState<string | null>(
+    detail?.promoted_clip_id ?? null,
+  );
+  const [promotedTitle, setPromotedTitle] = useState<string | null>(
+    detail?.promoted_title ?? null,
+  );
   const [copied, setCopied] = useState(false);
   // Optional details the user can add to the takedown draft.
   const [creatorName, setCreatorName] = useState("");
@@ -178,6 +188,28 @@ export function MatchDetail({
       setDraftError(err instanceof Error ? err.message : "Could not draft that notice.");
     } finally {
       setDrafting(false);
+    }
+  }
+
+  async function moveToOriginals() {
+    if (!detail || promoting || promotedClipId) return;
+    setPromoting(true);
+    setPromotionError(null);
+    try {
+      const res = await fetch(`${apiBase()}/api/scans/${detail.scan_id}/move-to-original`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not move that video."));
+      const json = (await res.json()) as { clip_id: string; title?: string };
+      setPromotedClipId(json.clip_id);
+      setPromotedTitle(json.title ?? null);
+      onPromoted?.();
+    } catch (err) {
+      setPromotionError(err instanceof Error ? err.message : "Could not move that video.");
+    } finally {
+      setPromoting(false);
     }
   }
 
@@ -273,6 +305,27 @@ export function MatchDetail({
           </ul>
         </section>
       )}
+
+      <section className="mt-8">
+        <h2 className="text-sm font-medium">Protect this upload</h2>
+        <p className="mt-2 text-xs text-[#9b958c]">
+          Move the checked video into Originals and fingerprint it so future checks can find it.
+        </p>
+        <button
+          type="button"
+          onClick={() => void moveToOriginals()}
+          disabled={!detail.suspicious_clip_id || promoting || Boolean(promotedClipId)}
+          className="mt-3 rounded-full border border-white/15 px-4 py-2 text-sm text-[#f4f1ea] disabled:opacity-40"
+        >
+          {promoting ? "Moving…" : promotedClipId ? "Moved to Originals" : "Move to Originals"}
+        </button>
+        {promotedClipId && (
+          <p className="mt-2 text-xs text-[#c8e6c4]">
+            Added as {promotedTitle || "a new original"}. Fingerprinting is running in the background.
+          </p>
+        )}
+        {promotionError && <p className="mt-2 text-sm text-[#f0b429]">{promotionError}</p>}
+      </section>
 
       <section className="mt-8">
         <h2 className="text-sm font-medium">DMCA draft</h2>

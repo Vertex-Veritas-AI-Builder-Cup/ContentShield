@@ -20,6 +20,39 @@ def upload_file(local_path: Path, destination: str, content_type: str) -> str:
     return f"gs://{settings.gcs_bucket}/{destination}"
 
 
+def move_gcs_uri(source_uri: str, destination: str) -> str:
+    """Move a stored object into a new path in the configured bucket."""
+
+    if not source_uri.startswith("gs://"):
+        raise ValueError("A stored gs:// URI is required")
+    source_bucket_name, _, source_blob_name = source_uri.removeprefix("gs://").partition("/")
+    if not source_bucket_name or not source_blob_name or not destination.strip():
+        raise ValueError("The stored source and destination are invalid")
+
+    settings = get_settings()
+    client = storage.Client(project=settings.gcp_project_id)
+    source_bucket = client.bucket(source_bucket_name)
+    destination_bucket = client.bucket(settings.gcs_bucket)
+    source_blob = source_bucket.blob(source_blob_name)
+    source_bucket.copy_blob(source_blob, destination_bucket, destination.strip())
+    source_blob.delete()
+    return f"gs://{settings.gcs_bucket}/{destination.strip()}"
+
+
+def download_gcs_uri(gcs_uri: str, local_path: Path) -> None:
+    """Download a stored object to a local path for background processing."""
+
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError("A stored gs:// URI is required")
+    bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")
+    if not bucket_name or not blob_name:
+        raise ValueError("The stored URI is invalid")
+
+    settings = get_settings()
+    client = storage.Client(project=settings.gcp_project_id)
+    client.bucket(bucket_name).blob(blob_name).download_to_filename(str(local_path))
+
+
 def delete_gcs_uri(gcs_uri: str) -> None:
     """Delete a GCS object referenced by a ``gs://`` URI when it is valid."""
 
