@@ -9,9 +9,10 @@ const badge: Record<ScanMatch["verdict"], { label: string; className: string }> 
   low_risk: { label: "Low risk", className: "text-[#c8e6c4]" },
 };
 
-// Show the calibrated 0-1 score as a percentage. It is not a probability.
+// Support both current 0-1 scores and legacy scores already stored as 0-100.
 function score(value: number) {
-  return `${Math.round(value * 100)}%`;
+  const percent = value >= 0 && value <= 1 ? value * 100 : value;
+  return `${Math.round(percent)}%`;
 }
 
 function coverage(value: number) {
