@@ -417,6 +417,9 @@ def get_scan(scan_id: str) -> dict | None:
         "style_notice": data.get("style_notice"),
         "verdict_explanation": data.get("verdict_explanation"),
         "dmca_draft": data.get("dmca_draft"),
+        "promoted_clip_id": data.get("promoted_clip_id") or "",
+        "promoted_title": data.get("promoted_title") or "",
+        "promoted_at": _as_iso(data.get("promoted_at")) if data.get("promoted_at") else "",
     }
 
 
@@ -506,6 +509,30 @@ def save_dmca_draft(scan_id: str, draft: dict) -> None:
 
     db = firestore.Client(project=get_settings().gcp_project_id)
     db.collection("scans").document(scan_id).update({"dmca_draft": draft})
+
+
+def save_scan_promotion(
+    scan_id: str,
+    *,
+    clip_id: str,
+    title: str,
+    original_gcs_uri: str,
+) -> datetime:
+    """Record that a suspicious upload was promoted into the original catalog."""
+
+    from google.cloud import firestore
+
+    promoted_at = datetime.now(timezone.utc)
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    db.collection("scans").document(scan_id).update(
+        {
+            "suspicious_gcs_uri": original_gcs_uri,
+            "promoted_clip_id": clip_id,
+            "promoted_title": title,
+            "promoted_at": promoted_at,
+        }
+    )
+    return promoted_at
 
 
 def _as_iso(value: object) -> str:

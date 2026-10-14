@@ -70,6 +70,9 @@ export default function CheckPage() {
           detail={detail}
           suspiciousUrl={suspiciousUrl}
           suspiciousTitle={suspiciousTitle}
+          onPromoted={() => {
+            if (detail) void openScan(detail.scan_id);
+          }}
         />
       </div>
       <ScanFeed

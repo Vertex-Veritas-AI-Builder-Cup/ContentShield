@@ -84,6 +84,7 @@ export type ScanMedia = {
 export type ScanDetail = {
   scan_id: string;
   suspicious_clip_id?: string;
+  source_filename?: string;
   scanned_at?: string;
   matches: ScanMatch[];
   top_match: ScanMatch | null;
@@ -94,6 +95,9 @@ export type ScanDetail = {
   style_notice?: StyleNotice | null;
   verdict_explanation?: VerdictExplanation | null;
   dmca_draft?: DmcaDraft | null;
+  promoted_clip_id?: string | null;
+  promoted_title?: string | null;
+  promoted_at?: string | null;
   media?: ScanMedia;
   // Kept as fallbacks for older API responses.
   suspicious_video_url?: string | null;
