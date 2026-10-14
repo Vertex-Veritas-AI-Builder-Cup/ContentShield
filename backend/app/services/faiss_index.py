@@ -6,7 +6,7 @@ import faiss
 import numpy as np
 
 from app.services.firestore_db import list_clip_segment_embeddings
-from app.services.verdict import verdict_from_score
+from app.services.verdict import content_score_from_cosine, verdict_from_score
 
 
 class SearchIndexError(RuntimeError):
@@ -103,7 +103,7 @@ def search_video_segments(
                         ),
                         "protected_start_offset_seconds": record["start_offset_seconds"],
                         "protected_end_offset_seconds": record["end_offset_seconds"],
-                        "similarity": score,
+                        "similarity": content_score_from_cosine(score),
                     }
                 )
 
@@ -118,7 +118,7 @@ def search_video_segments(
             {
                 "protected_clip_id": clip["protected_clip_id"],
                 "protected_title": clip["protected_title"],
-                "content_similarity": similarity,
+                "content_similarity": content_score_from_cosine(similarity),
                 "verdict": verdict_from_score(similarity),
                 "matched_segment_count": matched_count,
                 "segment_coverage": matched_count / query_count,

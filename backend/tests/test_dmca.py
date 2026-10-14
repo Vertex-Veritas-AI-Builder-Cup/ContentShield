@@ -12,7 +12,7 @@ class DmcaDraftTests(unittest.TestCase):
         """Include similarity, explanation, timestamps, and the legal-review disclaimer."""
 
         draft = generate_dmca_draft(
-            scan={"top_match": {"protected_title": "Original", "content_similarity": 0.91}},
+            scan={"top_match": {"protected_title": "Original", "content_similarity": 91.0}},
             verdict_explanation={
                 "decision": "likely_match",
                 "explanation": "The same sequence is visible.",
@@ -30,14 +30,18 @@ class DmcaDraftTests(unittest.TestCase):
             creator_name="A Creator",
             creator_email="creator@example.com",
             platform="Example Platform",
+            original_url="https://example.com/original-video",
+            infringing_url="https://example.com/copied-video",
             protected_media_url="https://signed/original",
             suspicious_media_url="https://signed/suspicious",
         )
 
-        self.assertIn("Similarity score: 0.910", draft["body"])
+        self.assertIn("Similarity score: 91.00/100", draft["body"])
         self.assertIn("same subject and text", draft["body"])
-        self.assertIn("Protected original video: https://signed/original", draft["body"])
-        self.assertIn("Suspicious video: https://signed/suspicious", draft["body"])
+        self.assertIn("Original URL: https://exampl", draft["body"])
+        self.assertIn("Potentially infringing URL: https://exampl", draft["body"])
+        self.assertIn("Protected original video: https://signed/", draft["body"])
+        self.assertIn("Suspicious video: https://signed/", draft["body"])
         self.assertEqual(draft["disclaimer"], "Draft for creator and legal review; not legal advice.")
 
     def test_missing_explanation_is_rejected(self) -> None:

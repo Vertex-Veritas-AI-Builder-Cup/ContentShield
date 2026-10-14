@@ -25,7 +25,7 @@ const badge: Record<Verdict, { label: string; className: string }> = {
 };
 
 function matchPercent(score: number) {
-  return `${Math.round(score * 100)}%`;
+  return `${Math.round(score)}%`;
 }
 
 // One line per original. A single match still gets a score so every row looks the same.

@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 
 from app.services.faiss_index import search_video_segments
+from app.services.verdict import content_score_from_cosine
 
 
 class FaissIndexTests(unittest.TestCase):
@@ -62,7 +63,9 @@ class FaissIndexTests(unittest.TestCase):
             )
 
         self.assertEqual([result["protected_clip_id"] for result in results], ["clip_a", "clip_b"])
-        self.assertAlmostEqual(results[0]["content_similarity"], expected, places=6)
+        self.assertAlmostEqual(
+            results[0]["content_similarity"], content_score_from_cosine(expected), places=6
+        )
 
     def test_cropped_copy_keeps_high_risk_with_partial_coverage(self) -> None:
         """Verify a strong partial match remains high risk with measurable coverage."""
@@ -83,7 +86,7 @@ class FaissIndexTests(unittest.TestCase):
         top = results[0]
         self.assertEqual(top["protected_clip_id"], "clip_original")
         self.assertEqual(top["verdict"], "high_risk")
-        self.assertAlmostEqual(top["content_similarity"], 0.8, places=6)
+        self.assertAlmostEqual(top["content_similarity"], content_score_from_cosine(0.8), places=6)
         self.assertEqual(top["matched_segment_count"], 1)
         self.assertAlmostEqual(top["segment_coverage"], 0.5, places=6)
 
@@ -101,7 +104,7 @@ class FaissIndexTests(unittest.TestCase):
             )
 
         self.assertEqual(results[0]["verdict"], "low_risk")
-        self.assertLess(results[0]["content_similarity"], 0.50)
+        self.assertLess(results[0]["content_similarity"], 50.0)
 
 
 if __name__ == "__main__":
