@@ -104,7 +104,7 @@ class FaissIndexTests(unittest.TestCase):
             )
 
         self.assertEqual(results[0]["verdict"], "low_risk")
-        self.assertLess(results[0]["content_similarity"], 50.0)
+        self.assertLess(results[0]["content_similarity"], 0.50)
 
 
 if __name__ == "__main__":

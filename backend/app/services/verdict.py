@@ -11,11 +11,11 @@ CONTENT_SCORE_SLOPE = 12.0
 
 
 def content_score_from_cosine(similarity: float) -> float:
-    """Map raw cosine similarity to a bounded, monotonic 0-100 display score."""
+    """Map raw cosine similarity to a bounded, monotonic score in the 0-1 range."""
 
     bounded = max(-1.0, min(1.0, float(similarity)))
-    score = 100.0 / (1.0 + math.exp(-CONTENT_SCORE_SLOPE * (bounded - CONTENT_SCORE_CENTER)))
-    return round(score, 2)
+    score = 1.0 / (1.0 + math.exp(-CONTENT_SCORE_SLOPE * (bounded - CONTENT_SCORE_CENTER)))
+    return round(score, 4)
 
 
 def verdict_from_score(similarity: float) -> str:

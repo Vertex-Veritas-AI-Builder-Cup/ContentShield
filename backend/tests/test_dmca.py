@@ -12,7 +12,7 @@ class DmcaDraftTests(unittest.TestCase):
         """Include similarity, explanation, timestamps, and the legal-review disclaimer."""
 
         draft = generate_dmca_draft(
-            scan={"top_match": {"protected_title": "Original", "content_similarity": 91.0}},
+            scan={"top_match": {"protected_title": "Original", "content_similarity": 0.91}},
             verdict_explanation={
                 "decision": "likely_match",
                 "explanation": "The same sequence is visible.",
@@ -36,7 +36,7 @@ class DmcaDraftTests(unittest.TestCase):
             suspicious_media_url="https://signed/suspicious",
         )
 
-        self.assertIn("Similarity score: 91.00/100", draft["body"])
+        self.assertIn("Similarity score: 0.910", draft["body"])
         self.assertIn("same subject and text", draft["body"])
         self.assertIn("Original URL: https://exampl", draft["body"])
         self.assertIn("Potentially infringing URL: https://exampl", draft["body"])

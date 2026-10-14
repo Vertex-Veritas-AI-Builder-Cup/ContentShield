@@ -9,9 +9,9 @@ const badge: Record<ScanMatch["verdict"], { label: string; className: string }> 
   low_risk: { label: "Low risk", className: "text-[#c8e6c4]" },
 };
 
-// Show the calibrated 0-100 score. It is not a probability.
+// Show the calibrated 0-1 score as a percentage. It is not a probability.
 function score(value: number) {
-  return value.toFixed(1);
+  return `${Math.round(value * 100)}%`;
 }
 
 function coverage(value: number) {
@@ -46,7 +46,7 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
               <p className="mt-2 text-5xl font-medium tracking-tight">
                 {score(top.content_similarity)}
               </p>
-              <p className="mt-2 text-sm text-[#9b958c]">Calibrated similarity score (0–100), not a probability.</p>
+              <p className="mt-2 text-sm text-[#9b958c]">Calibrated similarity score, shown as a percentage.</p>
               <p className="mt-2 text-sm text-[#f4f1ea]">
                 {top.protected_title || top.protected_clip_id}
               </p>

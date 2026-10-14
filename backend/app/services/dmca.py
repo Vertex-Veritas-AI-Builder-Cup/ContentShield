@@ -79,7 +79,7 @@ ContentShield evidence links (temporary signed URLs):
 - Suspicious video: {_url(suspicious_media_url)}
 
 ContentShield assessment:
-- Similarity score: {similarity:.2f}/100
+- Similarity score: {similarity:.3f}
 - Verdict-explanation decision: {decision}
 - Explanation: {_text(verdict_explanation.get("explanation"))}
 
