@@ -240,6 +240,12 @@ def move_scan_to_original(
             "already_promoted": True,
         }
 
+    if (scan.get("verdict") or "low_risk") != "low_risk":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only low-risk checked videos can be moved to Originals",
+        )
+
     source_uri = scan.get("suspicious_gcs_uri") or ""
     if not source_uri.startswith("gs://"):
         raise HTTPException(

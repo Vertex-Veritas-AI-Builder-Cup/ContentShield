@@ -101,6 +101,28 @@ class ClipRegistrationTests(unittest.TestCase):
         save_promotion_mock.assert_called_once()
         background_mock.assert_called_once()
 
+    def test_move_scan_to_originals_rejects_non_low_risk_scan(self) -> None:
+        """Keep likely matches out of Originals even when the endpoint is called directly."""
+
+        with patch(
+            "app.routes.clips.get_scan",
+            return_value={
+                "scan_id": "scan_1",
+                "verdict": "high_risk",
+                "suspicious_gcs_uri": "gs://bucket/suspicious/query.mp4",
+            },
+        ):
+            response = self.client.post(
+                "/api/scans/scan_1/move-to-original",
+                json={},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json()["detail"],
+            "Only low-risk checked videos can be moved to Originals",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -187,14 +187,14 @@ def explain_top_match(
         else "unknown"
     )
     prompt = f"""
-You are ContentShield's verdict-explanation assistant. Compare the protected original
-video with the suspicious video and explain whether the retrieved match is
+You are ContentShield's verdict-explanation assistant. Compare the original
+with the checked video and explain whether the retrieved match is
 credible. This is an evidence summary, not a legal conclusion.
 
 Protected title: {protected_title or "Untitled original"}
 Creator: {creator_name or "Unknown"}
-Suspicious video duration: {suspicious_duration} seconds
-Protected video duration: {protected_duration} seconds
+Checked video duration: {suspicious_duration} seconds
+Original duration: {protected_duration} seconds
 Retrieval result: {json.dumps(top_match, default=str)}
 
 Return only JSON with this shape:
@@ -220,7 +220,11 @@ query timestamp must be between 0 and {suspicious_duration} seconds, and every
 protected timestamp must be between 0 and {protected_duration} seconds. Do not
 copy the example timestamps above when they do not fit the actual durations. If
 there is no valid timestamped evidence, return an empty evidence list and state
-that limitation instead.
+that limitation instead. In each evidence observation, explicitly describe what
+is visible in the checked video, what is visible in the original, and
+the concrete shared detail that connects those two moments. Use the terms
+"checked video" and "original" in all viewer-facing text; never use
+"suspicious video", "query video", or "protected video".
 """.strip()
 
     content = [
