@@ -240,6 +240,16 @@ export function MatchDetail({
   }
   return (
     <div>
+      {detail.status === "processing" && (
+        <p className="mb-4 rounded-xl border border-white/10 bg-[#181816] px-4 py-3 text-sm text-[#9b958c]">
+          The video is uploaded. Content comparison is running in the background…
+        </p>
+      )}
+      {detail.status === "failed" && (
+        <p className="mb-4 rounded-xl border border-[#e36a6a]/30 bg-[#181816] px-4 py-3 text-sm text-[#e36a6a]">
+          Content comparison failed{detail.processing_error ? `: ${detail.processing_error}` : "."}
+        </p>
+      )}
       <MatchResults result={detail} />
 
 

@@ -24,6 +24,27 @@ export default function CheckPage() {
     };
   }, [suspiciousUrl]);
 
+  // Poll asynchronous scans until the backend has persisted a result.
+  useEffect(() => {
+    const scanId = detail?.scan_id;
+    if (!scanId || detail?.status !== "processing") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${apiBase()}/api/scans/${encodeURIComponent(scanId)}`);
+        if (res.ok && !cancelled) setDetail((await res.json()) as ScanDetail);
+      } catch {
+        // Keep the processing state visible; the next poll can recover.
+      }
+    };
+    const timer = window.setInterval(() => void poll(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [detail?.scan_id, detail?.status]);
+
   // Load one scan. Keep the just-finished result if the detail route is not ready yet.
   async function openScan(scanId: string, fallback?: ScanDetail) {
     setOpening(true);
