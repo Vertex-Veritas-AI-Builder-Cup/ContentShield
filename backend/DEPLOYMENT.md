@@ -12,7 +12,8 @@ Set these values in the Cloud Run service environment or a local `backend/.env`:
 - `GCP_PROJECT_ID`, `GCP_LOCATION`, and `GCS_BUCKET_DEV`
 - `GEMINI_ANALYSIS_MODEL`, `GEMINI_VIDEO_EMBEDDING_MODEL`, and
   `GEMINI_EMBEDDING_LOCATION`
-- `VIDEO_SEGMENT_SECONDS`, `MAX_UPLOAD_BYTES`, and `MAX_VIDEO_SECONDS`
+- `VIDEO_SEGMENT_SECONDS`, `VIDEO_EMBEDDING_CONCURRENCY`, `MAX_UPLOAD_BYTES`,
+  and `MAX_VIDEO_SECONDS`
 - `SIGNED_URL_MINUTES` (15 minutes is the cost-safe demo default)
 - `CORS_ORIGINS` as a comma-separated list, including the Vercel frontend URL
 
