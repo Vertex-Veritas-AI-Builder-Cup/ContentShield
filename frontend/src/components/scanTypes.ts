@@ -24,13 +24,17 @@ export type ScanMatch = {
   matched_segments?: MatchedSegment[];
 };
 
-// The closest protected clip in the independent clip-level style search.
-export type StyleMatch = {
+export type StyleMatchCandidate = {
   protected_clip_id: string;
   protected_title?: string;
   style_similarity: number;
   style_match?: boolean;
+};
+
+// The closest original in the independent clip-level style search.
+export type StyleMatch = StyleMatchCandidate & {
   style_threshold?: number;
+  other_style_matches?: StyleMatchCandidate[];
   disclaimer?: string;
 };
 
@@ -78,6 +82,7 @@ export type DmcaDraft = {
 export type ScanMedia = {
   suspicious_video_url?: string | null;
   protected_video_url?: string | null;
+  style_original_video_url?: string | null;
 };
 
 // Full record for one check, including any saved explanation or draft.

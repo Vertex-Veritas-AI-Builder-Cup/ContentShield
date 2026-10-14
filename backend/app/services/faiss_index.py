@@ -158,7 +158,7 @@ def build_style_index() -> tuple[faiss.Index, list[dict]]:
 
 
 def search_style_embeddings(style_embedding: list[float]) -> dict:
-    """Find the closest protected clip by style without affecting content risk."""
+    """Rank protected clips by style without affecting content risk."""
 
     index, records = build_style_index()
     vector = np.asarray([style_embedding], dtype=np.float32)
@@ -168,17 +168,34 @@ def search_style_embeddings(style_embedding: list[float]) -> dict:
         vector = _normalise(vector)
     except SearchIndexError as exc:
         raise StyleSearchError(str(exc)) from exc
-    scores, neighbors = index.search(vector, 1)
+    candidate_count = min(5, len(records))
+    scores, neighbors = index.search(vector, candidate_count)
     row = int(neighbors[0][0])
     if row < 0:
         raise StyleSearchError("No protected style match was returned")
     score = _bounded_similarity(scores[0][0])
     record = records[row]
+    other_style_matches = []
+    for candidate_score, candidate_row in zip(scores[0][1:], neighbors[0][1:]):
+        candidate_index = int(candidate_row)
+        if candidate_index < 0:
+            continue
+        candidate = records[candidate_index]
+        bounded_score = _bounded_similarity(candidate_score)
+        other_style_matches.append(
+            {
+                "protected_clip_id": candidate["clip_id"],
+                "protected_title": candidate["title"],
+                "style_similarity": bounded_score,
+                "style_match": bounded_score >= STYLE_MATCH_THRESHOLD,
+            }
+        )
     return {
         "protected_clip_id": record["clip_id"],
         "protected_title": record["title"],
         "style_similarity": score,
         "style_match": score >= STYLE_MATCH_THRESHOLD,
         "style_threshold": STYLE_MATCH_THRESHOLD,
+        "other_style_matches": other_style_matches,
         "disclaimer": "Style similarity is not a copyright or legal conclusion.",
     }

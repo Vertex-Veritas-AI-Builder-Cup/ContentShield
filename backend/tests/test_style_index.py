@@ -31,6 +31,9 @@ class StyleIndexTests(unittest.TestCase):
         self.assertEqual(result["protected_clip_id"], "clip_a")
         self.assertAlmostEqual(result["style_similarity"], 1.0, places=6)
         self.assertTrue(result["style_match"])
+        self.assertEqual(len(result["other_style_matches"]), 1)
+        self.assertEqual(result["other_style_matches"][0]["protected_clip_id"], "clip_b")
+        self.assertAlmostEqual(result["other_style_matches"][0]["style_similarity"], 0.0, places=6)
 
 
 if __name__ == "__main__":

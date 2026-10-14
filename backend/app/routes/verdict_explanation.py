@@ -69,6 +69,14 @@ def _detail_response(scan: dict[str, Any]) -> dict[str, Any]:
         if protected_clip:
             protected_video_url = signed_url_for_gcs_uri(protected_clip.get("gcs_uri", ""))
 
+    style_match = scan.get("style_match") or {}
+    style_original_video_url = None
+    style_clip_id = style_match.get("protected_clip_id")
+    if style_clip_id:
+        style_clip = protected_clip if style_clip_id == top_match.get("protected_clip_id") else get_clip(style_clip_id)
+        if style_clip:
+            style_original_video_url = signed_url_for_gcs_uri(style_clip.get("gcs_uri", ""))
+
     # The browser receives a temporary media URL, never the private gs:// URI.
     safe_protected_clip = None
     if protected_clip:
@@ -87,6 +95,7 @@ def _detail_response(scan: dict[str, Any]) -> dict[str, Any]:
         "protected_clip": safe_protected_clip,
         "media": {
             "protected_video_url": protected_video_url,
+            "style_original_video_url": style_original_video_url,
             "suspicious_video_url": signed_url_for_gcs_uri(scan.get("suspicious_gcs_uri", "")),
         },
     }

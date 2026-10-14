@@ -48,6 +48,37 @@ class ScanSerializationTests(unittest.TestCase):
         self.assertEqual(response["media"]["protected_video_url"], "https://signed/original")
         self.assertEqual(response["media"]["suspicious_video_url"], "https://signed/query")
 
+    @patch("app.routes.verdict_explanation.signed_url_for_gcs_uri")
+    @patch("app.routes.verdict_explanation.get_clip")
+    def test_detail_response_uses_style_matches_own_original_video(
+        self, get_clip_mock, signed_url_mock
+    ) -> None:
+        """Return the style-matched original rather than reusing the content-match video."""
+
+        get_clip_mock.side_effect = [
+            {"clip_id": "content_clip", "gcs_uri": "gs://private/content.mp4"},
+            {"clip_id": "style_clip", "gcs_uri": "gs://private/style.mp4"},
+        ]
+        signed_url_mock.side_effect = [
+            "https://signed/content",
+            "https://signed/style",
+            "https://signed/checked",
+        ]
+
+        response = _detail_response(
+            {
+                "scan_id": "scan_1",
+                "suspicious_gcs_uri": "gs://private/checked.mp4",
+                "top_match": {"protected_clip_id": "content_clip"},
+                "style_match": {"protected_clip_id": "style_clip", "style_similarity": 0.9},
+                "matches": [],
+            }
+        )
+
+        self.assertEqual(response["media"]["protected_video_url"], "https://signed/content")
+        self.assertEqual(response["media"]["style_original_video_url"], "https://signed/style")
+        self.assertEqual(response["media"]["suspicious_video_url"], "https://signed/checked")
+
     @patch("app.routes.verdict_explanation.save_dmca_draft")
     @patch("app.routes.verdict_explanation.generate_dmca_draft")
     @patch("app.routes.verdict_explanation.signed_url_for_gcs_uri")
