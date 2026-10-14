@@ -12,10 +12,11 @@ function formatSize(bytes: number) {
 type Props = {
   // The page needs the file itself so it can play the suspicious video.
   onScanned: (result: ScanDetail, file: File) => void;
+  onCheckingChange?: (checking: boolean) => void;
 };
 
 /** Let a user select a suspicious video and submit it to the scan API. */
-export function ScanUploadForm({ onScanned }: Props) {
+export function ScanUploadForm({ onScanned, onCheckingChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export function ScanUploadForm({ onScanned }: Props) {
     }
 
     setLoading(true);
+    onCheckingChange?.(true);
     setError(null);
     const body = new FormData();
     body.append("file", file);
@@ -74,6 +76,7 @@ export function ScanUploadForm({ onScanned }: Props) {
       setError(err instanceof Error ? err.message : "The API is not answering.");
     } finally {
       setLoading(false);
+      onCheckingChange?.(false);
     }
   }
 
@@ -110,7 +113,7 @@ export function ScanUploadForm({ onScanned }: Props) {
           />
         ) : null}
         <span className="relative text-sm text-[#f4f1ea]">
-          {file ? file.name : over ? "Let go" : "Drop a short to check"}
+          {file ? file.name : over ? "Let go" : "Drop a video to check"}
         </span>
         <span className="relative mt-1 text-xs text-[#9b958c]">
           {file

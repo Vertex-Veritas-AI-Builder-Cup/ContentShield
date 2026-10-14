@@ -14,6 +14,7 @@ export default function CheckPage() {
   const [suspiciousTitle, setSuspiciousTitle] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
+  const [checking, setChecking] = useState(false);
   // Bumps after a new check so the recent list reloads.
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -49,9 +50,10 @@ export default function CheckPage() {
   return (
     <div className="pt-2">
       <h1 className="text-2xl font-medium tracking-tight">Check</h1>
-      <p className="mt-1 text-sm text-[#9b958c]">Drop a short you think was copied.</p>
+      <p className="mt-1 text-sm text-[#9b958c]">Choose a video to check against your originals.</p>
       <div className="mt-6">
         <ScanUploadForm
+          onCheckingChange={setChecking}
           onScanned={(scan, file) => {
             const nextUrl = URL.createObjectURL(file);
             setSuspiciousUrl(nextUrl);
@@ -62,7 +64,6 @@ export default function CheckPage() {
         />
       </div>
       <div className="mt-8">
-        {opening && <p className="mb-3 text-sm text-[#9b958c]">Opening that check…</p>}
         {detailError && <p className="mb-3 text-sm text-[#f0b429]">{detailError}</p>}
         {/* New key resets the detail form when a different scan is opened. */}
         <MatchDetail
@@ -73,6 +74,7 @@ export default function CheckPage() {
           onPromoted={() => {
             if (detail) void openScan(detail.scan_id);
           }}
+          loading={checking || (opening && !detail)}
         />
       </div>
       <ScanFeed

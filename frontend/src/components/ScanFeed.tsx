@@ -122,7 +122,7 @@ export function ScanFeed({
                 <span className="mt-1 block text-xs text-[#6f6a62]">{when(scan.scanned_at)}</span>
               </span>
               <span className="min-w-0">
-                <span className="block text-[11px] text-[#6f6a62]">Your original</span>
+                <span className="block text-[11px] text-[#6f6a62]">Original</span>
                 {pairedOriginals(scan).length === 0 ? (
                   <span className="mt-1 block text-[#9b958c]">No original matched</span>
                 ) : (

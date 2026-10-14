@@ -9,7 +9,7 @@ export default function Home() {
         Your short. Then the copy.
       </h1>
       <p className="mt-4 max-w-sm text-[#9b958c]">
-        Save a few originals. Check one suspicious clip against them.
+        Save a few originals. Compare a checked video against them.
       </p>
       <Link
         href="/catalog"

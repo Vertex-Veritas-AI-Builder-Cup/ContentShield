@@ -75,11 +75,13 @@ export function MatchDetail({
   suspiciousUrl,
   suspiciousTitle,
   onPromoted,
+  loading = false,
 }: {
   detail: ScanDetail | null;
   suspiciousUrl: string | null;
   suspiciousTitle: string | null;
   onPromoted?: () => void;
+  loading?: boolean;
 }) {
   // Start from anything already saved on the scan. The assessment loads automatically.
   const [explanation, setExplanation] = useState<VerdictExplanation | null>(
@@ -140,6 +142,29 @@ export function MatchDetail({
   }, [detail?.scan_id, detail?.top_match, explanation]);
 
   if (!detail) {
+    if (loading) {
+      return (
+        <div className="animate-pulse" aria-label="Loading match results" aria-busy="true">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {["Content match", "Style match"].map((label) => (
+              <section key={label} className="min-h-64 rounded-2xl border border-white/10 bg-[#181816] p-6">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#6f6a62]">{label}</p>
+                <div className="mt-5 h-3 w-20 rounded-full bg-white/10" />
+                <div className="mt-4 h-14 w-28 rounded-lg bg-white/10" />
+                <div className="mt-4 h-3 w-44 max-w-full rounded-full bg-white/[0.07]" />
+                <div className="mt-5 h-3 w-32 rounded-full bg-white/[0.07]" />
+              </section>
+            ))}
+          </div>
+          <section className="mt-6 rounded-2xl border border-white/10 bg-[#181816] p-6">
+            <div className="h-3 w-28 rounded-full bg-white/10" />
+            <div className="mt-5 h-6 w-36 rounded-full bg-white/10" />
+            <div className="mt-4 h-3 w-full rounded-full bg-white/[0.07]" />
+            <div className="mt-2 h-3 w-3/4 rounded-full bg-white/[0.07]" />
+          </section>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-white/15 px-6 text-sm text-[#9b958c]">
         The match shows up here.
