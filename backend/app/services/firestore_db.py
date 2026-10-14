@@ -461,6 +461,10 @@ def finalize_scan(
     matches: list[dict],
     top_match: dict | None,
     processing_ms: int,
+    embedding_segments: list[dict],
+    embedding_version: str,
+    embedding_model: str,
+    embedding_dimension: int,
 ) -> None:
     """Persist completed comparison results for an asynchronous scan."""
 
@@ -477,6 +481,10 @@ def finalize_scan(
             "top_similarity": top_similarity,
             "verdict": verdict,
             "processing_ms": int(processing_ms),
+            "embedding_segments": embedding_segments,
+            "embedding_version": embedding_version,
+            "embedding_model": embedding_model,
+            "embedding_dimension": int(embedding_dimension),
             "processing_error": firestore.DELETE_FIELD,
         }
     )
@@ -495,6 +503,27 @@ def mark_scan_failed(scan_id: str, error: str, processing_ms: int = 0) -> None:
             "processing_ms": int(processing_ms),
         }
     )
+
+
+def get_scan_embedding(scan_id: str) -> dict | None:
+    """Return private embedding data saved with a completed scan."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    snapshot = db.collection("scans").document(scan_id).get()
+    if not snapshot.exists:
+        return None
+    data = snapshot.to_dict() or {}
+    segments = data.get("embedding_segments") or []
+    if not isinstance(segments, list) or not segments:
+        return None
+    return {
+        "embedding_segments": segments,
+        "embedding_version": data.get("embedding_version") or "",
+        "embedding_model": data.get("embedding_model") or "",
+        "embedding_dimension": int(data.get("embedding_dimension") or 0),
+    }
 
 
 def save_verdict_explanation(scan_id: str, explanation: dict) -> None:

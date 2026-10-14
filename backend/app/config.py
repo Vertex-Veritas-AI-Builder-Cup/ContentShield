@@ -78,7 +78,7 @@ def get_settings() -> Settings:
         video_embedding_version="video_frame_sample_v3",
         video_segment_seconds=int(os.getenv("VIDEO_SEGMENT_SECONDS", "5")),
         video_embedding_concurrency=int(
-            os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "4")
+            os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "8")
         ),
         ffmpeg_binary=os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg",
         ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",

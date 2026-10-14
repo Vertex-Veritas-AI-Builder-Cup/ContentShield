@@ -50,7 +50,7 @@ def _evaluate_content(
     *,
     duration_seconds: float,
     content_type: str,
-) -> tuple[list[dict], dict | None]:
+) -> tuple[list[dict], list[dict], dict | None]:
     """Embed and search content in one worker thread."""
 
     query_segments = embed_video_segments(
@@ -59,7 +59,7 @@ def _evaluate_content(
         mime_type=content_type,
     )
     matches = search_video_segments(query_segments)
-    return matches, matches[0] if matches else None
+    return query_segments, matches, matches[0] if matches else None
 
 
 def _scan_in_background(
@@ -73,16 +73,21 @@ def _scan_in_background(
     """Run the expensive embedding/search work after the upload response."""
 
     try:
-        matches, top_match = _evaluate_content(
+        query_segments, matches, top_match = _evaluate_content(
             suspicious_uri,
             duration_seconds=duration_seconds,
             content_type=content_type,
         )
+        settings = get_settings()
         finalize_scan(
             scan_id=scan_id,
             matches=matches,
             top_match=top_match,
             processing_ms=int((time.monotonic() - started) * 1000),
+            embedding_segments=query_segments,
+            embedding_version=settings.video_embedding_version,
+            embedding_model=settings.gemini_video_embedding_model,
+            embedding_dimension=len(query_segments[0]["embedding"]),
         )
     except Exception as exc:
         logger.exception("Failed to complete scan %s", scan_id)
