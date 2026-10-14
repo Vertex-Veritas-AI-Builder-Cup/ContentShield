@@ -6,7 +6,10 @@ import faiss
 import numpy as np
 
 from app.services.firestore_db import list_clip_segment_embeddings
-from app.services.verdict import content_score_from_cosine, verdict_from_score
+from app.services.verdict import (
+    content_score_from_cosine,
+    verdict_from_score,
+)
 
 
 class SearchIndexError(RuntimeError):
@@ -110,10 +113,18 @@ def search_video_segments(
     results: list[dict] = []
     query_count = len(query_segments)
     for clip in grouped.values():
-        scores = sorted(clip["query_scores"].values(), reverse=True)
+        # Missing query segments count as non-matches. This prevents a clip
+        # with one accidental strong neighbor from looking like a full copy.
+        all_scores = [
+            clip["query_scores"].get(query_number, -1.0)
+            for query_number in range(query_count)
+        ]
+        scores = sorted(all_scores, reverse=True)
         top_scores = scores[:3]
-        similarity = sum(top_scores) / len(top_scores)
+        strength = sum(top_scores) / len(top_scores)
         matched_count = len(clip["matched_segments"])
+        coverage = matched_count / query_count
+        similarity = strength * (0.5 + (0.5 * coverage))
         results.append(
             {
                 "protected_clip_id": clip["protected_clip_id"],
@@ -121,7 +132,7 @@ def search_video_segments(
                 "content_similarity": content_score_from_cosine(similarity),
                 "verdict": verdict_from_score(similarity),
                 "matched_segment_count": matched_count,
-                "segment_coverage": matched_count / query_count,
+                "segment_coverage": coverage,
                 "matched_segments": clip["matched_segments"],
             }
         )

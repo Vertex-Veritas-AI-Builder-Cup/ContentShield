@@ -75,7 +75,7 @@ def get_settings() -> Settings:
         gemini_embedding_location=os.getenv(
             "GEMINI_EMBEDDING_LOCATION", "global"
         ).strip(),
-        video_embedding_version="video_segment_v1",
+        video_embedding_version="video_frame_sample_v2",
         video_segment_seconds=int(os.getenv("VIDEO_SEGMENT_SECONDS", "5")),
         video_embedding_concurrency=int(
             os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "4")

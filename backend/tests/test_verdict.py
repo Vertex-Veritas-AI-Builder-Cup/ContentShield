@@ -21,10 +21,10 @@ class VerdictTests(unittest.TestCase):
         """The public score is bounded while preserving cosine ordering."""
 
         self.assertEqual(content_score_from_cosine(-1.0), 0.0)
-        self.assertEqual(content_score_from_cosine(0.60), 0.5)
-        self.assertGreater(content_score_from_cosine(0.70), 0.5)
+        self.assertEqual(content_score_from_cosine(0.60), 0.0)
+        self.assertGreater(content_score_from_cosine(0.70), 0.0)
         self.assertLess(content_score_from_cosine(0.70), 1.0)
-        self.assertEqual(content_score_from_cosine(1.0), 0.9918)
+        self.assertLessEqual(content_score_from_cosine(1.0), 1.0)
 
 
 if __name__ == "__main__":

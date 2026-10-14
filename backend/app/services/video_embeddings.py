@@ -17,6 +17,7 @@ class VideoEmbeddingError(RuntimeError):
 
 
 MAX_VIDEO_EMBEDDING_CONCURRENCY = 8
+MIN_VIDEO_EMBEDDING_FRAMES = 20
 
 
 def _client() -> genai.Client:
@@ -52,6 +53,7 @@ def _embed_segment(
     start_seconds: float,
     end_seconds: float,
     segment_number: int,
+    fps: float,
     mime_type: str,
     model: str,
 ) -> list[float]:
@@ -65,7 +67,7 @@ def _embed_segment(
                     mime_type=mime_type,
                 ),
                 video_metadata=types.VideoMetadata(
-                    fps=0.5,
+                    fps=fps,
                     start_offset=_format_offset(start_seconds),
                     end_offset=_format_offset(end_seconds),
                 ),
@@ -118,7 +120,7 @@ def embed_video_segments(
         raise VideoEmbeddingError("Video embedding model is not configured")
     if not settings.gemini_embedding_location:
         raise VideoEmbeddingError("Video embedding location is not configured")
-    if settings.video_embedding_version != "video_segment_v1":
+    if settings.video_embedding_version != "video_frame_sample_v2":
         raise VideoEmbeddingError(
             f"Unsupported video embedding version: {settings.video_embedding_version}"
         )
@@ -130,14 +132,13 @@ def embed_video_segments(
             "VIDEO_EMBEDDING_CONCURRENCY must be greater than zero"
         )
 
-    segment_specs: list[tuple[int, float, float]] = []
-    start = 0.0
-    segment_number = 0
-    while start < duration_seconds:
-        end = min(start + segment_seconds, duration_seconds)
-        segment_specs.append((segment_number, start, end))
-        segment_number += 1
-        start = end
+    configured_segment_count = math.ceil(duration_seconds / segment_seconds)
+    segment_count = max(MIN_VIDEO_EMBEDDING_FRAMES, configured_segment_count)
+    window_seconds = duration_seconds / segment_count
+    segment_specs = [
+        (number, number * window_seconds, (number + 1) * window_seconds)
+        for number in range(segment_count)
+    ]
 
     worker_count = min(
         settings.video_embedding_concurrency,
@@ -152,6 +153,7 @@ def embed_video_segments(
             start_seconds=segment_start,
             end_seconds=segment_end,
             segment_number=number,
+            fps=max(0.5, 1.0 / (segment_end - segment_start)),
             mime_type=mime_type,
             model=settings.gemini_video_embedding_model,
         )
