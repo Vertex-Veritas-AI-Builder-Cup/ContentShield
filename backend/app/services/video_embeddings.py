@@ -17,7 +17,7 @@ class VideoEmbeddingError(RuntimeError):
 
 
 MAX_VIDEO_EMBEDDING_CONCURRENCY = 8
-MIN_VIDEO_EMBEDDING_FRAMES = 20
+MIN_VIDEO_EMBEDDING_FRAMES = 10
 
 
 def _client() -> genai.Client:
@@ -120,7 +120,7 @@ def embed_video_segments(
         raise VideoEmbeddingError("Video embedding model is not configured")
     if not settings.gemini_embedding_location:
         raise VideoEmbeddingError("Video embedding location is not configured")
-    if settings.video_embedding_version != "video_frame_sample_v2":
+    if settings.video_embedding_version != "video_frame_sample_v3":
         raise VideoEmbeddingError(
             f"Unsupported video embedding version: {settings.video_embedding_version}"
         )
