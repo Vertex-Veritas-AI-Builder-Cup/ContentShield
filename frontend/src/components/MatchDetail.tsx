@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { MatchResults } from "@/components/MatchResults";
 import {
+  DmcaDraft,
   EvidenceItem,
   ScanDetail,
   VerdictExplanation,
@@ -62,13 +63,13 @@ function VideoPanel({
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-[#6f6a62]">Timestamps show up after verification.</p>
+        <p className="mt-2 text-xs text-[#6f6a62]">Timestamps appear after the automated assessment.</p>
       )}
     </div>
   );
 }
 
-/** Show one scan, its videos, and the verdict explanation. */
+/** Show one scan, its videos, the verdict explanation, and a DMCA draft. */
 export function MatchDetail({
   detail,
   suspiciousUrl,
@@ -78,12 +79,55 @@ export function MatchDetail({
   suspiciousUrl: string | null;
   suspiciousTitle: string | null;
 }) {
-  // Start from an explanation already saved on the scan.
+  // Start from anything already saved on the scan. The assessment loads automatically.
   const [explanation, setExplanation] = useState<VerdictExplanation | null>(
     detail?.verdict_explanation ?? null,
   );
+  const [draft, setDraft] = useState<DmcaDraft | null>(detail?.dmca_draft ?? null);
   const [explaining, setExplaining] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Optional details the user can add to the takedown draft.
+  const [creatorName, setCreatorName] = useState("");
+  const [creatorEmail, setCreatorEmail] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [infringingUrl, setInfringingUrl] = useState("");
+
+  // Generate and persist the evidence summary as soon as a matched scan is opened.
+  useEffect(() => {
+    if (!detail?.top_match || explanation) return;
+    const scanId = detail.scan_id;
+    let cancelled = false;
+
+    async function loadExplanation() {
+      setExplaining(true);
+      setExplainError(null);
+      try {
+        const res = await fetch(`${apiBase()}/api/scans/${scanId}/explain-verdict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (!res.ok) throw new Error(await errorMessage(res, "Could not prepare the assessment."));
+        const json = (await res.json()) as { verdict_explanation: VerdictExplanation };
+        if (!cancelled) setExplanation(json.verdict_explanation);
+      } catch (err) {
+        if (!cancelled) {
+          setExplainError(err instanceof Error ? err.message : "Could not prepare the assessment.");
+        }
+      } finally {
+        if (!cancelled) setExplaining(false);
+      }
+    }
+
+    void loadExplanation();
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.scan_id, detail?.top_match, explanation]);
 
   if (!detail) {
     return (
@@ -105,42 +149,66 @@ export function MatchDetail({
   const suspiciousSrc = suspiciousUrl || detail.suspicious_video_url || null;
   const originalSrc = detail.protected_video_url || null;
 
-  // Ask the backend to explain the top match and store that explanation.
-  async function verify() {
-    setExplaining(true);
-    setExplainError(null);
+  // Send only the fields the user filled in, then show the returned draft.
+  async function createDraft(event: FormEvent) {
+    event.preventDefault();
+    setDrafting(true);
+    setDraftError(null);
+    setCopied(false);
+    const payload: Record<string, string> = {};
+    if (creatorName.trim()) payload.creator_name = creatorName.trim();
+    if (creatorEmail.trim()) payload.creator_email = creatorEmail.trim();
+    if (platform.trim()) payload.platform = platform.trim();
+    if (originalUrl.trim()) payload.original_url = originalUrl.trim();
+    if (infringingUrl.trim()) payload.infringing_url = infringingUrl.trim();
+
     try {
-      const res = await fetch(`${apiBase()}/api/scans/${detail!.scan_id}/explain-verdict`, {
+      const res = await fetch(`${apiBase()}/api/scans/${detail!.scan_id}/dmca`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        throw new Error(await errorMessage(res, "Could not verify that match."));
+        throw new Error(await errorMessage(res, "Could not draft that notice."));
       }
-      const json = (await res.json()) as { verdict_explanation: VerdictExplanation };
-      setExplanation(json.verdict_explanation);
+      const json = (await res.json()) as { dmca_draft: DmcaDraft };
+      setDraft(json.dmca_draft);
     } catch (err) {
-      setExplainError(err instanceof Error ? err.message : "Could not verify that match.");
+      setDraftError(err instanceof Error ? err.message : "Could not draft that notice.");
     } finally {
-      setExplaining(false);
+      setDrafting(false);
     }
   }
 
+  // Copy the subject and body so the user can paste them elsewhere.
+  async function copyDraft() {
+    if (!draft) return;
+    try {
+      await navigator.clipboard.writeText(`${draft.subject}\n\n${draft.body}`);
+      setCopied(true);
+    } catch {
+      setDraftError("Could not copy that draft.");
+    }
+  }
+
+  // Save the draft as a text file in the browser.
+  function downloadDraft() {
+    if (!draft) return;
+    const blob = new Blob(
+      [`${draft.subject}\n\n${draft.body}\n\n${draft.disclaimer}\n`],
+      { type: "text/plain" },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${draft.draft_id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   return (
     <div>
       <MatchResults result={detail} />
 
-      {detail.style_notice && (
-        <section className="mt-5 rounded-xl border border-[#f0b429]/30 bg-[#f0b429]/[0.05] p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-[#f0b429]">Style signal</p>
-          <p className="mt-2 text-sm font-medium">{detail.style_notice.message}</p>
-          <p className="mt-1 text-xs text-[#9b958c]">
-            Style similarity {detail.style_notice.style_similarity.toFixed(2)}. This is creator
-            intelligence, not a copyright or legal conclusion.
-          </p>
-        </section>
-      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <VideoPanel
@@ -158,27 +226,17 @@ export function MatchDetail({
       </div>
 
       <section className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">Verdict explanation</h2>
-          <button
-            type="button"
-            disabled={!detail.top_match || explaining}
-            onClick={() => void verify()}
-            className="rounded-full bg-[#f4f1ea] px-4 py-2 text-sm font-medium text-[#10100e] disabled:opacity-40"
-          >
-            {explaining ? "Verifying…" : "Verify match"}
-          </button>
-        </div>
+        <h2 className="text-sm font-medium">Verdict explanation</h2>
         <p className="mt-2 text-xs text-[#9b958c]">Automated assessment. Not a legal verdict.</p>
         {explainError && <p className="mt-3 text-sm text-[#f0b429]">{explainError}</p>}
         {!explanation && !explaining && !explainError && (
           <p className="mt-3 text-sm text-[#9b958c]">
             {detail.top_match
-              ? "Verify the match to read why these clips lined up."
-              : "Nothing to verify until a close original is found."}
+              ? "Preparing the evidence summary…"
+              : "No close original was found to assess."}
           </p>
         )}
-        {explaining && <p className="mt-3 text-sm text-[#9b958c]">Reading the match…</p>}
+        {explaining && <p className="mt-3 text-sm text-[#9b958c]">Preparing the evidence summary…</p>}
         {explanation && (
           <div className="mt-4">
             <p className="text-sm font-medium">{decisionLabel[explanation.decision] ?? explanation.decision}</p>
@@ -214,6 +272,71 @@ export function MatchDetail({
           </ul>
         </section>
       )}
+
+      <section className="mt-8">
+        <h2 className="text-sm font-medium">DMCA draft</h2>
+        <p className="mt-2 text-xs text-[#9b958c]">
+          A draft for you or a lawyer to review. It is not sent anywhere.
+        </p>
+        <form onSubmit={createDraft} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input
+            value={creatorName}
+            onChange={(event) => setCreatorName(event.target.value)}
+            placeholder="Creator name"
+            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
+          />
+          <input
+            value={creatorEmail}
+            onChange={(event) => setCreatorEmail(event.target.value)}
+            placeholder="Email"
+            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
+          />
+          <input
+            value={platform}
+            onChange={(event) => setPlatform(event.target.value)}
+            placeholder="Platform"
+            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
+          />
+          <input
+            value={originalUrl}
+            onChange={(event) => setOriginalUrl(event.target.value)}
+            placeholder="Original URL"
+            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429]"
+          />
+          <input
+            value={infringingUrl}
+            onChange={(event) => setInfringingUrl(event.target.value)}
+            placeholder="Copied video URL"
+            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#6f6a62] focus:border-[#f0b429] sm:col-span-2"
+          />
+          <button
+            type="submit"
+            disabled={!detail.top_match || !explanation || drafting}
+            className="w-fit rounded-full border border-white/15 px-4 py-2 text-sm text-[#f4f1ea] disabled:opacity-40"
+          >
+            {drafting ? "Writing…" : "Generate DMCA draft"}
+          </button>
+        </form>
+        {!explanation && (
+          <p className="mt-3 text-xs text-[#6f6a62]">Verify the match before drafting a notice.</p>
+        )}
+        {draftError && <p className="mt-3 text-sm text-[#f0b429]">{draftError}</p>}
+        {draft && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#181816] px-4 py-4">
+            <p className="text-sm font-medium">{draft.subject}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{draft.body}</p>
+            <p className="mt-4 text-xs text-[#f0b429]">{draft.disclaimer}</p>
+            <div className="mt-4 flex gap-3 text-sm">
+              <button type="button" className="text-[#f4f1ea] hover:text-[#f0b429]" onClick={() => void copyDraft()}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+              <button type="button" className="text-[#9b958c] hover:text-[#f4f1ea]" onClick={downloadDraft}>
+                Download
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

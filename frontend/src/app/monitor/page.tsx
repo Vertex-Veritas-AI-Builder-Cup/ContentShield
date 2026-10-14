@@ -5,7 +5,6 @@ import { MatchDetail } from "@/components/MatchDetail";
 import { ScanFeed } from "@/components/ScanFeed";
 import { ScanUploadForm } from "@/components/ScanUploadForm";
 import { ScanDetail, apiBase, errorMessage } from "@/components/scanTypes";
-import { VerdictExplanationPanel } from "@/components/VerdictExplanationPanel";
 
 /** Render suspicious-video upload, match detail, and scan history. */
 export default function CheckPage() {
@@ -67,17 +66,20 @@ export default function CheckPage() {
         {detailError && <p className="mb-3 text-sm text-[#f0b429]">{detailError}</p>}
         {/* New key resets the detail form when a different scan is opened. */}
         <MatchDetail
-          key={`${detail?.scan_id ?? "empty"}-${detail?.verdict_explanation?.verdict_explanation_id ?? ""}`}
+          key={`${detail?.scan_id ?? "empty"}-${detail?.verdict_explanation?.verdict_explanation_id ?? ""}-${detail?.dmca_draft?.draft_id ?? ""}`}
           detail={detail}
           suspiciousUrl={suspiciousUrl}
           suspiciousTitle={suspiciousTitle}
         />
       </div>
-      <VerdictExplanationPanel
-        scanId={detail?.scan_id ?? null}
-        topMatch={detail?.top_match ?? null}
+      <ScanFeed
+        refreshKey={refreshKey}
+        onOpen={(scanId) => {
+          setSuspiciousUrl(null);
+          setSuspiciousTitle(null);
+          void openScan(scanId);
+        }}
       />
-      <ScanFeed refreshKey={refreshKey} />
     </div>
   );
 }
