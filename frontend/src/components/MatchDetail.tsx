@@ -109,6 +109,7 @@ export function MatchDetail({
   const [drafting, setDrafting] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftExpanded, setDraftExpanded] = useState(true);
   const [promoting, setPromoting] = useState(false);
   const [promotionError, setPromotionError] = useState<string | null>(null);
   const [promotedClipId, setPromotedClipId] = useState<string | null>(
@@ -231,6 +232,7 @@ export function MatchDetail({
       }
       const json = (await res.json()) as { dmca_draft: DmcaDraft };
       setDraft(json.dmca_draft);
+      setDraftExpanded(true);
     } catch (err) {
       setDraftError(err instanceof Error ? err.message : "Could not draft that notice.");
     } finally {
@@ -637,20 +639,40 @@ export function MatchDetail({
         {draftError && <p className="mt-3 text-sm text-[#f0b429]">{draftError}</p>}
         {draft && (
           <div className="mt-4 rounded-xl border border-white/10 bg-[#181816] px-4 py-4">
-            <p className="text-sm font-medium">{draft.subject}</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{draft.body}</p>
-            <p className="mt-4 text-xs text-[#f0b429]">{draft.disclaimer}</p>
-            <div className="mt-4 flex gap-3 text-sm">
-              <button type="button" className="text-[#f4f1ea] hover:text-[#f0b429]" onClick={() => void copyDraft()}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <button type="button" className="text-[#9b958c] hover:text-[#f4f1ea]" onClick={downloadDraft}>
-                Download
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-[#6f6a62]">Generated draft</p>
+                <p className="mt-1 truncate text-sm font-medium">{draft.subject}</p>
+              </div>
+              <button
+                type="button"
+                aria-expanded={draftExpanded}
+                onClick={() => setDraftExpanded((value) => !value)}
+                className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-[#d4d0c8] transition-colors hover:border-white/30 hover:text-[#f4f1ea]"
+              >
+                {draftExpanded ? "Minimize" : "Expand"}
               </button>
             </div>
+            {draftExpanded && (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="whitespace-pre-wrap text-sm leading-6">{draft.body}</p>
+                <p className="mt-4 text-xs text-[#f0b429]">{draft.disclaimer}</p>
+                <div className="mt-4 flex gap-3 text-sm">
+                  <button type="button" className="text-[#f4f1ea] hover:text-[#f0b429]" onClick={() => void copyDraft()}>
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                  <button type="button" className="text-[#9b958c] hover:text-[#f4f1ea]" onClick={downloadDraft}>
+                    Download
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
+
+      <OtherContentMatches result={detail} />
+      <OtherStyleMatches result={detail} />
     </div>
   );
 }
