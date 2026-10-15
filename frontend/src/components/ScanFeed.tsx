@@ -16,10 +16,6 @@ type ScanRow = {
   protected_title?: string;
   source_filename?: string;
   high_matches?: HighMatch[];
-  style_evaluated?: boolean;
-  style_protected_title?: string;
-  style_similarity?: number | null;
-  style_match?: boolean | null;
 };
 
 const badge: Record<Verdict, { label: string; className: string }> = {
@@ -111,7 +107,7 @@ export function ScanFeed({
           <li key={scan.scan_id} className="border-t border-white/10">
             <button
               type="button"
-              className="grid w-full grid-cols-1 gap-3 py-3 text-left text-sm hover:bg-white/[0.03] sm:grid-cols-[1fr_1fr_7.5rem_8.5rem] sm:gap-4"
+              className="grid w-full grid-cols-1 gap-3 py-3 text-left text-sm hover:bg-white/[0.03] sm:grid-cols-[1fr_1fr_7.5rem] sm:gap-4"
               onClick={() => onOpen?.(scan.scan_id)}
             >
               <span className="min-w-0">
@@ -146,23 +142,6 @@ export function ScanFeed({
                       {matchPercent(match.score)} {badge[match.verdict]?.label ?? match.verdict}
                     </span>
                   ))
-                )}
-              </span>
-              <span>
-                <span className="block text-[11px] text-[#6f6a62]">Style score</span>
-                {!scan.style_evaluated ? (
-                  <span className="mt-1 block text-[#9b958c]">Unavailable</span>
-                ) : typeof scan.style_similarity === "number" ? (
-                  <>
-                    <span className="mt-1 block truncate">
-                      {scan.style_protected_title || "Closest style"}
-                    </span>
-                    <span className={`mt-1 block ${scan.style_match ? "text-[#f0b429]" : "text-[#c8e6c4]"}`}>
-                      {matchPercent(scan.style_similarity)} {scan.style_match ? "Similar" : "Below threshold"}
-                    </span>
-                  </>
-                ) : (
-                  <span className="mt-1 block text-[#9b958c]">No result</span>
                 )}
               </span>
             </button>

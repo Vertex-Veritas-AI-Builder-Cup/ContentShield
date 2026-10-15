@@ -38,8 +38,8 @@ evenly spaced keyframes in chronological order.
 
 Describe concrete, matchable details: people, objects, setting, actions,
 visible text, logos, colors, and the sequence of events. Include the order of
-the keyframes. Focus on what is visibly in the content, not editing style or
-legal conclusions. Return plain text in 8 numbered lines, one per keyframe.
+the keyframes. Focus on what is visibly in the content, not legal conclusions.
+Return plain text in 8 numbered lines, one per keyframe.
 """.strip()
     parts = [types.Part.from_bytes(data=frame.read_bytes(), mime_type="image/jpeg") for frame in frames]
     try:

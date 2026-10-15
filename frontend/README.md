@@ -1,8 +1,8 @@
 # ContentShield frontend
 
 This Next.js frontend provides local testing for protected-clip registration,
-catalog management, content scans, style notices, evidence explanations, and
-reviewable DMCA drafts.
+catalog management, content scans, evidence explanations, and reviewable DMCA
+drafts.
 
 ## Local development
 

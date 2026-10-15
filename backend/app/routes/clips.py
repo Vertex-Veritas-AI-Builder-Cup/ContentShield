@@ -25,12 +25,6 @@ from app.services.storage import (
     move_gcs_uri,
     upload_file,
 )
-from app.services.style_features import (
-    STYLE_EMBEDDING_VERSION,
-    StyleFeatureError,
-    extract_style_features,
-    style_embedding_from_features,
-)
 from app.services.video import VideoProcessingError, video_duration_seconds
 from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
 
@@ -77,11 +71,9 @@ def _fingerprint_clip_in_background(
     content_type: str,
     settings,
 ) -> None:
-    """Build both fingerprints and finalize a pending clip after the response."""
+    """Build the content fingerprint and finalize a pending clip after the response."""
 
     try:
-        style_features = extract_style_features(temp_path)
-        style_embedding = style_embedding_from_features(style_features)
         embedding_segments = embed_video_segments(
             gcs_uri,
             duration_seconds=duration_seconds,
@@ -95,9 +87,6 @@ def _fingerprint_clip_in_background(
             embedding_version=settings.video_embedding_version,
             embedding_model=settings.gemini_video_embedding_model,
             embedding_dimension=len(embedding_segments[0]["embedding"]),
-            style_embedding=style_embedding,
-            style_embedding_version=STYLE_EMBEDDING_VERSION,
-            style_embedding_dimension=len(style_embedding),
         )
         logger.info("Finished fingerprinting clip %s", clip_id)
     except Exception as exc:
@@ -179,12 +168,12 @@ async def register_clip(
             "title": clip_title,
             "gcs_uri": gcs_uri,
             "status": "processing",
-            "message": "Video uploaded. Content and style fingerprinting is running in the background.",
+            "message": "Video uploaded. Content fingerprinting is running in the background.",
             "created_at": created_at.isoformat(),
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except (VideoProcessingError, VideoEmbeddingError, StyleFeatureError) as exc:
+    except (VideoProcessingError, VideoEmbeddingError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Failed to register clip %s", clip_id)
@@ -305,7 +294,7 @@ def move_scan_to_original(
             "already_promoted": False,
             "created_at": created_at.isoformat(),
             "promoted_at": promoted_at.isoformat(),
-            "message": "Moved to originals. Content and style fingerprinting is running in the background.",
+            "message": "Moved to originals. Content fingerprinting is running in the background.",
         }
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
