@@ -18,14 +18,16 @@ class _Credentials:
 
 class SignedUrlTests(unittest.TestCase):
     @patch("app.services.storage.storage.Client")
+    @patch("app.services.storage.google.auth.default")
     @patch("app.services.storage.get_settings")
     def test_cloud_run_credentials_use_iam_sign_blob(
-        self, settings_mock: Mock, client_factory: Mock
+        self, settings_mock: Mock, default_credentials: Mock, client_factory: Mock
     ) -> None:
         settings_mock.return_value.gcp_project_id = "project"
         settings_mock.return_value.signed_url_minutes = 15
 
         credentials = _Credentials()
+        default_credentials.return_value = (credentials, "project")
         blob = Mock()
         blob.generate_signed_url.return_value = "https://signed/video"
         client = client_factory.return_value
@@ -35,6 +37,10 @@ class SignedUrlTests(unittest.TestCase):
         result = signed_url_for_gcs_uri("gs://bucket/video.mp4")
 
         self.assertEqual(result, "https://signed/video")
+        default_credentials.assert_called_once_with(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        client_factory.assert_called_once_with(project="project", credentials=credentials)
         blob.generate_signed_url.assert_called_once()
         kwargs = blob.generate_signed_url.call_args.kwargs
         self.assertEqual(kwargs["service_account_email"], credentials.service_account_email)
