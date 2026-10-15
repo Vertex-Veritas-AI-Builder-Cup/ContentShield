@@ -157,18 +157,56 @@ export function MatchDetail({
     );
   }
 
+  // Keep the local preview mounted while the backend finishes the asynchronous check.
+  const suspiciousSrc =
+    suspiciousUrl || detail.media?.suspicious_video_url || detail.suspicious_video_url || null;
+
   if (detail.status === "processing") {
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-white/10 bg-[#181816] px-6 text-center text-sm text-[#9b958c]">
-        The video is uploaded. Content comparison is running in the background…
+      <div className="rounded-2xl border border-white/10 bg-[#181816] p-5 sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[#f0b429]">Content review</p>
+            <h2 className="mt-1 text-xl font-medium tracking-tight">Checking your video</h2>
+            <p className="mt-1 text-sm text-[#9b958c]">Comparing it with your Originals. This can take a moment.</p>
+          </div>
+          <span className="animate-pulse text-xs text-[#6f6a62]">In progress</span>
+        </div>
+        <div className="mt-6 grid gap-5 sm:grid-cols-2">
+          <VideoPanel
+            label="Checked video"
+            title={suspiciousTitle || detail.source_filename || detail.suspicious_clip_id || "Checked file"}
+            src={suspiciousSrc}
+            ranges={[]}
+          />
+          <div className="animate-pulse rounded-xl border border-white/10 bg-[#10100e] p-4">
+            <div className="h-3 w-24 rounded-full bg-white/10" />
+            <div className="mt-4 h-5 w-36 rounded-full bg-white/10" />
+            <div className="mt-5 h-3 w-full rounded-full bg-white/[0.07]" />
+            <div className="mt-2 h-3 w-4/5 rounded-full bg-white/[0.07]" />
+            <p className="mt-6 text-xs text-[#6f6a62]">Original comparison will appear when the check is ready.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (detail.status === "failed") {
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#e36a6a]/30 bg-[#181816] px-6 text-center text-sm text-[#e36a6a]">
-        Content comparison failed{detail.processing_error ? `: ${detail.processing_error}` : "."}
+      <div className="rounded-2xl border border-[#e36a6a]/30 bg-[#181816] p-5 sm:p-6">
+        <p className="text-sm text-[#e36a6a]">
+          Content comparison failed{detail.processing_error ? `: ${detail.processing_error}` : "."}
+        </p>
+        {suspiciousSrc && (
+          <div className="mt-5 max-w-xl">
+            <VideoPanel
+              label="Checked video"
+              title={suspiciousTitle || detail.source_filename || "Checked file"}
+              src={suspiciousSrc}
+              ranges={[]}
+            />
+          </div>
+        )}
       </div>
     );
   }
