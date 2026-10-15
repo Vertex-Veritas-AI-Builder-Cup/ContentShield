@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
+from google.auth.transport import requests as google_auth_requests
 from google.cloud import storage
 
 from app.config import get_settings
@@ -66,20 +67,6 @@ def delete_gcs_uri(gcs_uri: str) -> None:
     client.bucket(bucket_name).blob(blob_name).delete()
 
 
-def blob_for_gcs_uri(gcs_uri: str):
-    """Return a private Storage blob for an existing ``gs://`` URI."""
-
-    if not gcs_uri.startswith("gs://"):
-        raise ValueError("A stored gs:// URI is required")
-    bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")
-    if not bucket_name or not blob_name:
-        raise ValueError("The stored URI is invalid")
-
-    settings = get_settings()
-    client = storage.Client(project=settings.gcp_project_id)
-    return client.bucket(bucket_name).blob(blob_name)
-
-
 def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str | None:
     """Create a short-lived browser URL for a private GCS video when possible."""
 
@@ -96,13 +83,29 @@ def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str |
             return None
         client = storage.Client(project=settings.gcp_project_id)
         blob = client.bucket(bucket_name).blob(blob_name)
-        # Signed URLs let the browser play a private object without making the
-        # whole development bucket public. Some local ADC types cannot sign;
-        # callers can render a useful placeholder when this returns None.
+        credentials = client._credentials
+        request = google_auth_requests.Request()
+
+        # Cloud Run uses metadata credentials, which do not contain a private
+        # key for local signing. Passing an access token and service-account
+        # email makes google-cloud-storage call IAM Credentials signBlob;
+        # the runtime identity must have roles/iam.serviceAccountTokenCreator.
+        if not credentials.valid or getattr(credentials, "service_account_email", None) in (
+            None,
+            "default",
+        ):
+            credentials.refresh(request)
+        service_account_email = getattr(credentials, "service_account_email", None)
+        access_token = getattr(credentials, "token", None)
+        if not service_account_email or service_account_email == "default" or not access_token:
+            return None
+
         return blob.generate_signed_url(
             version="v4",
             expiration=timedelta(minutes=minutes),
             method="GET",
+            service_account_email=service_account_email,
+            access_token=access_token,
         )
     except Exception:
         return None

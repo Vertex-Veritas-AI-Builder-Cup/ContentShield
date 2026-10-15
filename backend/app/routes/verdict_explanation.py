@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
-from google.api_core.exceptions import NotFound
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.services.dmca import DmcaDraftError, generate_dmca_draft
@@ -16,7 +14,7 @@ from app.services.firestore_db import (
     save_dmca_draft,
     save_verdict_explanation,
 )
-from app.services.storage import blob_for_gcs_uri, signed_url_for_gcs_uri
+from app.services.storage import signed_url_for_gcs_uri
 from app.services.verdict_explanation import (
     GeminiProviderError,
     VerdictExplanationError,
@@ -25,54 +23,6 @@ from app.services.verdict_explanation import (
 
 
 router = APIRouter()
-
-
-def _media_range(value: str | None, size: int) -> tuple[int, int] | None:
-    """Parse one browser byte range and return inclusive start/end offsets."""
-
-    if not value:
-        return None
-    if not value.startswith("bytes=") or "," in value:
-        raise HTTPException(
-            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
-            headers={"Content-Range": f"bytes */{size}"},
-        )
-    start_text, _, end_text = value.removeprefix("bytes=").partition("-")
-    try:
-        if not start_text:
-            suffix_length = int(end_text)
-            if suffix_length <= 0:
-                raise ValueError
-            start = max(size - suffix_length, 0)
-            end = size - 1
-        else:
-            start = int(start_text)
-            end = int(end_text) if end_text else size - 1
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
-            headers={"Content-Range": f"bytes */{size}"},
-        ) from exc
-    if start < 0 or start >= size or end < start:
-        raise HTTPException(
-            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
-            headers={"Content-Range": f"bytes */{size}"},
-        )
-    return start, min(end, size - 1)
-
-
-def _stream_blob(blob, start: int, end: int):
-    """Yield one private GCS object in bounded chunks for browser playback."""
-
-    remaining = end - start + 1
-    with blob.open("rb", chunk_size=1024 * 1024) as reader:
-        reader.seek(start)
-        while remaining > 0:
-            chunk = reader.read(min(1024 * 1024, remaining))
-            if not chunk:
-                break
-            remaining -= len(chunk)
-            yield chunk
 
 
 class DmcaRequest(BaseModel):
@@ -147,55 +97,6 @@ def get_scan_detail(scan_id: str):
     """Return a complete scan, its top protected clip, and persisted Day 4 results."""
 
     return _detail_response(_load_scan_or_404(scan_id))
-
-
-@router.get("/api/scans/{scan_id}/media/{media_kind}")
-def get_scan_media(scan_id: str, media_kind: str, request: Request):
-    """Stream a scan video through the API when signed GCS playback is unavailable."""
-
-    scan = _load_scan_or_404(scan_id)
-    if media_kind == "checked":
-        gcs_uri = scan.get("suspicious_gcs_uri") or ""
-        filename = scan.get("source_filename") or "checked-video.mp4"
-        content_type = scan.get("content_type") or "video/mp4"
-    elif media_kind == "original":
-        top_match = scan.get("top_match") or {}
-        protected_clip = get_clip(top_match.get("protected_clip_id", ""))
-        if not protected_clip:
-            raise HTTPException(status_code=404, detail="Original video not found")
-        gcs_uri = protected_clip.get("gcs_uri") or ""
-        filename = protected_clip.get("title") or "original-video.mp4"
-        content_type = protected_clip.get("content_type") or "video/mp4"
-    else:
-        raise HTTPException(status_code=404, detail="Unknown scan media")
-
-    try:
-        blob = blob_for_gcs_uri(gcs_uri)
-        blob.reload()
-    except NotFound as exc:
-        raise HTTPException(status_code=404, detail="Video file not found") from exc
-    except (RuntimeError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail="Video storage is unavailable") from exc
-
-    size = blob.size or 0
-    if size <= 0:
-        raise HTTPException(status_code=404, detail="Video file is empty")
-    byte_range = _media_range(request.headers.get("range"), size)
-    start, end = byte_range or (0, size - 1)
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(end - start + 1),
-        "Content-Disposition": f'inline; filename="{str(filename).replace(chr(34), "")}"',
-        "Cache-Control": "private, max-age=60",
-    }
-    if byte_range:
-        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-    return StreamingResponse(
-        _stream_blob(blob, start, end),
-        status_code=status.HTTP_206_PARTIAL_CONTENT if byte_range else status.HTTP_200_OK,
-        media_type=content_type,
-        headers=headers,
-    )
 
 
 @router.post("/api/scans/{scan_id}/explain-verdict")
