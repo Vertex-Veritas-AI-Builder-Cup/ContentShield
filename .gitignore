@@ -31,6 +31,9 @@ frontend/.next/
 frontend/out/
 frontend/.vercel/
 
+# Firebase CLI cache
+.firebase/
+
 # OS & IDE
 .DS_Store
 Thumbs.db

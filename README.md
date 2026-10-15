@@ -139,9 +139,19 @@ Run startup.
 
 ### Deployment split
 
-Deploy the backend Docker image to Cloud Run. Frontend hosting is configured
-separately from the repository root. For local testing, run the backend
-container on port `8000` and start the frontend with `npm run dev` in `frontend`.
+Deploy the backend Docker image to Cloud Run and the static Next.js export to
+Firebase Hosting. The frontend build receives the Cloud Run URL through
+`NEXT_PUBLIC_API_URL`, and the backend `CORS_ORIGINS` setting must include both
+Firebase domains:
+
+```text
+https://contentshield-hackathon.web.app
+https://contentshield-hackathon.firebaseapp.com
+```
+
+The GitHub Actions workflow deploys Firebase Hosting only after pushes to
+`main`. For local testing, run the backend container on port `8000` and start
+the frontend with `npm run dev` in `frontend`.
 
 ## License
 
