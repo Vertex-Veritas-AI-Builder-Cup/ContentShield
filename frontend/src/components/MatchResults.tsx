@@ -19,7 +19,7 @@ function coverage(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-/** Show the content similarity results. */
+/** Show the primary content similarity score. */
 export function MatchResults({ result }: { result: ScanDetail | null }) {
   if (!result) {
     return (
@@ -30,14 +30,9 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
   }
 
   const top = result.top_match;
-  // Highest content similarity first, in case the API order changes.
-  const matches = [...(result.matches ?? [])].sort(
-    (a, b) => b.content_similarity - a.content_similarity,
-  );
   return (
     <div>
-      <div>
-        <section className="rounded-2xl border border-white/10 bg-[#181816] px-5 py-6">
+      <section className="rounded-2xl border border-white/10 bg-[#181816] px-5 py-6 sm:px-6">
           <p className="text-xs uppercase tracking-[0.18em] text-[#9b958c]">Content match</p>
           {top ? (
             <>
@@ -66,30 +61,38 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
           ) : (
             <p className="mt-4 text-sm text-[#9b958c]">No close original found.</p>
           )}
-        </section>
-
-      </div>
-
-      {matches.length > 0 && (
-        <section className="mt-6">
-          <h2 className="text-sm font-medium">Other content matches</h2>
-          <ul className="mt-3">
-            {matches.map((match) => (
-              <li
-                key={match.protected_clip_id}
-                className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm"
-              >
-                <span className="min-w-0 truncate">
-                  {match.protected_title || match.protected_clip_id}
-                </span>
-                <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
-                  {score(match.content_similarity)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      </section>
     </div>
+  );
+}
+
+/** Show lower-ranked content candidates after the primary review workflow. */
+export function OtherContentMatches({ result }: { result: ScanDetail }) {
+  const matches = [...(result.matches ?? [])]
+    .filter((match) => match.protected_clip_id !== result.top_match?.protected_clip_id)
+    .sort((a, b) => b.content_similarity - a.content_similarity);
+
+  if (matches.length === 0) return null;
+
+  return (
+    <section className="mt-8 rounded-2xl border border-white/10 bg-[#181816] p-5 sm:p-6">
+      <h2 className="text-sm font-medium">Other content matches</h2>
+      <p className="mt-1 text-xs text-[#6f6a62]">Lower-ranked originals from this check</p>
+      <ul className="mt-4">
+        {matches.map((match) => (
+          <li
+            key={match.protected_clip_id}
+            className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm first:border-t-0 first:pt-0"
+          >
+            <span className="min-w-0 truncate">
+              {match.protected_title || match.protected_clip_id}
+            </span>
+            <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
+              {score(match.content_similarity)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
