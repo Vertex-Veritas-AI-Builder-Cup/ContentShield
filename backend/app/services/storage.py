@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 from pathlib import Path
 
 from google.auth.transport import requests as google_auth_requests
 from google.cloud import storage
 
 from app.config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 def upload_file(local_path: Path, destination: str, content_type: str) -> str:
@@ -108,5 +112,6 @@ def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str |
             access_token=access_token,
         )
     except Exception:
+        logger.exception("Failed to create a signed Storage URL")
         return None
 
