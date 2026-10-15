@@ -15,7 +15,9 @@ Set these values in the Cloud Run service environment or a local `backend/.env`:
 - `VIDEO_SEGMENT_SECONDS`, `VIDEO_EMBEDDING_CONCURRENCY`, `MAX_UPLOAD_BYTES`,
   and `MAX_VIDEO_SECONDS`
 - `SIGNED_URL_MINUTES` (15 minutes is the cost-safe demo default)
-- `CORS_ORIGINS` as a comma-separated list, including the deployed frontend URL
+- `CORS_ORIGINS` as a comma-separated list, including the Firebase Hosting
+  domains (`https://contentshield-hackathon.web.app` and
+  `https://contentshield-hackathon.firebaseapp.com`)
 
 Cloud Run should use an attached service account rather than a checked-in JSON
 key. Grant only the permissions needed by the service: bucket-scoped object

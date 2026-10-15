@@ -26,3 +26,18 @@ origin through CORS. The local backend already allows `http://localhost:3000`.
 
 Frontend deployment is configured from the repository root; see the deployment
 instructions in the main README.
+
+## Deploy on Firebase Hosting
+
+The frontend is exported as static files in `frontend/out` and deployed to the
+`contentshield-hackathon` Firebase Hosting site. For a manual deployment, set
+the production API URL while building, then deploy from the repository root:
+
+```bash
+NEXT_PUBLIC_API_URL=https://<your-cloud-run-service>.run.app npm --prefix frontend run build
+firebase deploy --only hosting
+```
+
+The GitHub Actions workflow deploys automatically after changes are pushed to
+`main`. It requires the repository secrets `NEXT_PUBLIC_API_URL` and
+`FIREBASE_SERVICE_ACCOUNT_CONTENTSHIELD_HACKATHON`.
