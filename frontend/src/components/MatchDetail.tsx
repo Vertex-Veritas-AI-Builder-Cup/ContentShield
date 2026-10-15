@@ -182,6 +182,8 @@ export function MatchDetail({
     (item) => `Original ${range(item.protected_start_seconds, item.protected_end_seconds)}`,
   );
   // Prefer the file just dropped. Use an API link only if the page has one.
+  const suspiciousSrc =
+    suspiciousUrl || detail.media?.suspicious_video_url || detail.suspicious_video_url || null;
   const originalSrc = detail.media?.protected_video_url || detail.protected_video_url || null;
   const canMoveToOriginals = !detail.top_match || detail.top_match.verdict === "low_risk";
   const contentScore = detail.top_match
