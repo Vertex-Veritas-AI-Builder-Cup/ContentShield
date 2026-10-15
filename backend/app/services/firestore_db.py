@@ -311,6 +311,7 @@ def list_scans() -> list[dict]:
             scans.append(
                 {
                     "scan_id": doc.id,
+                    "status": data.get("status") or "completed",
                     "top_similarity": similarity,
                     "verdict": verdict,
                     "scanned_at": _as_iso(data.get("scanned_at")),
@@ -337,6 +338,8 @@ def get_scan(scan_id: str) -> dict | None:
     data = snapshot.to_dict() or {}
     return {
         "scan_id": snapshot.id,
+        "status": data.get("status") or "completed",
+        "processing_error": data.get("processing_error") or "",
         "suspicious_clip_id": data.get("suspicious_clip_id") or "",
         "suspicious_gcs_uri": data.get("suspicious_gcs_uri") or "",
         "source_filename": data.get("source_filename") or "",
@@ -416,6 +419,111 @@ def save_scan(
         }
     )
     return scanned_at
+
+
+def save_pending_scan(
+    *,
+    scan_id: str,
+    suspicious_clip_id: str,
+    suspicious_gcs_uri: str,
+    source_filename: str,
+    content_type: str,
+    suspicious_duration_seconds: float,
+) -> datetime:
+    """Persist an uploaded scan before its expensive comparison starts."""
+
+    from google.cloud import firestore
+
+    scanned_at = datetime.now(timezone.utc)
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("scans").document(scan_id).set(
+        {
+            "status": "processing",
+            "suspicious_clip_id": suspicious_clip_id,
+            "suspicious_gcs_uri": suspicious_gcs_uri,
+            "source_filename": source_filename,
+            "content_type": content_type,
+            "suspicious_duration_seconds": float(suspicious_duration_seconds),
+            "matches": [],
+            "top_match": None,
+            "top_similarity": 0.0,
+            "verdict": "low_risk",
+            "processing_ms": 0,
+            "scanned_at": scanned_at,
+        }
+    )
+    return scanned_at
+
+
+def finalize_scan(
+    *,
+    scan_id: str,
+    matches: list[dict],
+    top_match: dict | None,
+    processing_ms: int,
+    embedding_segments: list[dict],
+    embedding_version: str,
+    embedding_model: str,
+    embedding_dimension: int,
+) -> None:
+    """Persist completed comparison results for an asynchronous scan."""
+
+    from google.cloud import firestore
+
+    top_similarity = float((top_match or {}).get("content_similarity") or 0.0)
+    verdict = (top_match or {}).get("verdict") or "low_risk"
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("scans").document(scan_id).update(
+        {
+            "status": "completed",
+            "matches": matches,
+            "top_match": top_match,
+            "top_similarity": top_similarity,
+            "verdict": verdict,
+            "processing_ms": int(processing_ms),
+            "embedding_segments": embedding_segments,
+            "embedding_version": embedding_version,
+            "embedding_model": embedding_model,
+            "embedding_dimension": int(embedding_dimension),
+            "processing_error": firestore.DELETE_FIELD,
+        }
+    )
+
+
+def mark_scan_failed(scan_id: str, error: str, processing_ms: int = 0) -> None:
+    """Record a failed asynchronous comparison without losing the upload."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    db.collection("scans").document(scan_id).update(
+        {
+            "status": "failed",
+            "processing_error": error[:240],
+            "processing_ms": int(processing_ms),
+        }
+    )
+
+
+def get_scan_embedding(scan_id: str) -> dict | None:
+    """Return private embedding data saved with a completed scan."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=os.getenv("GCP_PROJECT_ID"))
+    snapshot = db.collection("scans").document(scan_id).get()
+    if not snapshot.exists:
+        return None
+    data = snapshot.to_dict() or {}
+    segments = data.get("embedding_segments") or []
+    if not isinstance(segments, list) or not segments:
+        return None
+    return {
+        "embedding_segments": segments,
+        "embedding_version": data.get("embedding_version") or "",
+        "embedding_model": data.get("embedding_model") or "",
+        "embedding_dimension": int(data.get("embedding_dimension") or 0),
+    }
 
 
 def save_verdict_explanation(scan_id: str, explanation: dict) -> None:

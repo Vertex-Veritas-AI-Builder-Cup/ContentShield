@@ -14,6 +14,7 @@ from app.services.firestore_db import (
     finalize_clip,
     get_clip,
     get_scan,
+    get_scan_embedding,
     list_clips,
     mark_clip_failed,
     save_pending_clip,
@@ -218,6 +219,12 @@ def move_scan_to_original(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
+    if scan.get("status") == "processing":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The scan is still processing",
+        )
+
     existing_clip_id = scan.get("promoted_clip_id") or ""
     if existing_clip_id:
         existing_clip = get_clip(existing_clip_id) or {}
@@ -245,12 +252,56 @@ def move_scan_to_original(
     content_type = scan.get("content_type") or (
         "video/quicktime" if suffix == ".mov" else "video/mp4"
     )
+    settings = get_settings()
+    scan_embedding = get_scan_embedding(scan_id)
+    reuse_embedding = bool(
+        scan_embedding
+        and scan_embedding.get("embedding_version") == settings.video_embedding_version
+        and scan_embedding.get("embedding_model") == settings.gemini_video_embedding_model
+        and scan_embedding.get("embedding_dimension", 0) > 0
+    )
     destination = f"originals/{clip_id}{suffix}"
     original_uri = ""
     temp_path: Path | None = None
     background_started = False
     try:
         original_uri = move_gcs_uri(source_uri, destination)
+        if reuse_embedding:
+            duration_seconds = float(scan.get("suspicious_duration_seconds") or 0.0)
+            if duration_seconds <= 0:
+                raise ValueError("The scan has no valid video duration")
+            created_at = save_pending_clip(
+                clip_id=clip_id,
+                title=title,
+                creator_name=(request.creator_name or "").strip(),
+                gcs_uri=original_uri,
+                content_type=content_type,
+                duration_seconds=duration_seconds,
+            )
+            finalize_clip(
+                clip_id=clip_id,
+                embedding_segments=scan_embedding["embedding_segments"],
+                embedding_version=scan_embedding["embedding_version"],
+                embedding_model=scan_embedding["embedding_model"],
+                embedding_dimension=scan_embedding["embedding_dimension"],
+            )
+            promoted_at = save_scan_promotion(
+                scan_id,
+                clip_id=clip_id,
+                title=title,
+                original_gcs_uri=original_uri,
+            )
+            background_started = True
+            return {
+                "scan_id": scan_id,
+                "clip_id": clip_id,
+                "title": title,
+                "status": "fingerprinted",
+                "already_promoted": False,
+                "created_at": created_at.isoformat(),
+                "promoted_at": promoted_at.isoformat(),
+                "message": "Moved to originals using the existing scan embedding.",
+            }
         with tempfile.NamedTemporaryFile(
             prefix=f"{clip_id}_",
             suffix=suffix,
@@ -275,7 +326,6 @@ def move_scan_to_original(
             title=title,
             original_gcs_uri=original_uri,
         )
-        settings = get_settings()
         background_tasks.add_task(
             _fingerprint_clip_in_background,
             clip_id=clip_id,

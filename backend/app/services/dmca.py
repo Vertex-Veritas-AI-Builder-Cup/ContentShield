@@ -18,6 +18,13 @@ def _text(value: object, fallback: str = "Not provided") -> str:
     return cleaned or fallback
 
 
+def _url(value: object) -> str:
+    """Keep notice URLs compact for the generated draft body."""
+
+    cleaned = str(value or "").strip()
+    return cleaned[:15] or "Not provided"
+
+
 def generate_dmca_draft(
     *,
     scan: dict[str, Any],
@@ -64,12 +71,12 @@ I am requesting a review of a video that may reproduce protected content.
 Protected original: {title}
 Creator: {_text(creator_name)}
 Platform: {_text(platform)}
-Original URL: {_text(original_url)}
-Potentially infringing URL: {_text(infringing_url)}
+Original URL: {_url(original_url)}
+Potentially infringing URL: {_url(infringing_url)}
 
 ContentShield evidence links (temporary signed URLs):
-- Protected original video: {_text(protected_media_url)}
-- Suspicious video: {_text(suspicious_media_url)}
+- Protected original video: {_url(protected_media_url)}
+- Suspicious video: {_url(suspicious_media_url)}
 
 ContentShield assessment:
 - Similarity score: {similarity:.3f}

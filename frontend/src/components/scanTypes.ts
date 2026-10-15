@@ -63,6 +63,8 @@ export type ScanMedia = {
 // Full record for one check, including any saved explanation or draft.
 export type ScanDetail = {
   scan_id: string;
+  status?: "processing" | "completed" | "failed";
+  processing_error?: string;
   suspicious_clip_id?: string;
   source_filename?: string;
   scanned_at?: string;

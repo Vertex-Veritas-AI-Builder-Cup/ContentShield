@@ -10,6 +10,7 @@ type HighMatch = {
 
 type ScanRow = {
   scan_id: string;
+  status?: "processing" | "completed" | "failed";
   top_similarity: number;
   verdict: Verdict;
   scanned_at: string;
@@ -25,7 +26,8 @@ const badge: Record<Verdict, { label: string; className: string }> = {
 };
 
 function matchPercent(score: number) {
-  return `${Math.round(score * 100)}%`;
+  const percent = score >= 0 && score <= 1 ? score * 100 : score;
+  return `${Math.round(percent)}%`;
 }
 
 // One line per original. A single match still gets a score so every row looks the same.
@@ -120,7 +122,9 @@ export function ScanFeed({
               <span className="min-w-0">
                 <span className="block text-[11px] text-[#6f6a62]">Your original</span>
                 {pairedOriginals(scan).length === 0 ? (
-                  <span className="mt-1 block text-[#9b958c]">No original matched</span>
+                  <span className="mt-1 block text-[#9b958c]">
+                    {scan.status === "processing" ? "Checking…" : "No original matched"}
+                  </span>
                 ) : (
                   pairedOriginals(scan).map((match, index) => (
                     <span key={`${match.title}-${index}`} className="mt-1 block truncate">
@@ -132,7 +136,9 @@ export function ScanFeed({
               <span>
                 <span className="block text-[11px] text-[#6f6a62]">Match score</span>
                 {pairedOriginals(scan).length === 0 ? (
-                  <span className="mt-1 block text-[#9b958c]">None</span>
+                  <span className="mt-1 block text-[#9b958c]">
+                    {scan.status === "processing" ? "Processing" : "None"}
+                  </span>
                 ) : (
                   pairedOriginals(scan).map((match, index) => (
                     <span

@@ -75,10 +75,10 @@ def get_settings() -> Settings:
         gemini_embedding_location=os.getenv(
             "GEMINI_EMBEDDING_LOCATION", "global"
         ).strip(),
-        video_embedding_version="video_segment_v1",
+        video_embedding_version="video_frame_sample_v3",
         video_segment_seconds=int(os.getenv("VIDEO_SEGMENT_SECONDS", "5")),
         video_embedding_concurrency=int(
-            os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "4")
+            os.getenv("VIDEO_EMBEDDING_CONCURRENCY", "8")
         ),
         ffmpeg_binary=os.getenv("FFMPEG_BIN", "ffmpeg").strip() or "ffmpeg",
         ffprobe_binary=os.getenv("FFPROBE_BIN", "ffprobe").strip() or "ffprobe",

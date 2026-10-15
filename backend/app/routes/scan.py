@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import tempfile
 import time
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
 from app.config import get_settings
 from app.services.faiss_index import (
@@ -15,7 +14,12 @@ from app.services.faiss_index import (
     build_segment_index,
     search_video_segments,
 )
-from app.services.firestore_db import list_scans, save_scan
+from app.services.firestore_db import (
+    finalize_scan,
+    list_scans,
+    mark_scan_failed,
+    save_pending_scan,
+)
 from app.services.storage import delete_gcs_uri, upload_file
 from app.services.video import VideoProcessingError, video_duration_seconds
 from app.services.video_embeddings import VideoEmbeddingError, embed_video_segments
@@ -46,7 +50,7 @@ def _evaluate_content(
     *,
     duration_seconds: float,
     content_type: str,
-) -> tuple[list[dict], dict | None]:
+) -> tuple[list[dict], list[dict], dict | None]:
     """Embed and search content in one worker thread."""
 
     query_segments = embed_video_segments(
@@ -55,12 +59,51 @@ def _evaluate_content(
         mime_type=content_type,
     )
     matches = search_video_segments(query_segments)
-    return matches, matches[0] if matches else None
+    return query_segments, matches, matches[0] if matches else None
 
 
-@router.post("/api/scan", status_code=status.HTTP_200_OK)
-async def scan_video(file: UploadFile = File(...)):
-    """Embed an uploaded suspicious video, search protected clips, and save the scan."""
+def _scan_in_background(
+    *,
+    scan_id: str,
+    suspicious_uri: str,
+    duration_seconds: float,
+    content_type: str,
+    started: float,
+) -> None:
+    """Run the expensive embedding/search work after the upload response."""
+
+    try:
+        query_segments, matches, top_match = _evaluate_content(
+            suspicious_uri,
+            duration_seconds=duration_seconds,
+            content_type=content_type,
+        )
+        settings = get_settings()
+        finalize_scan(
+            scan_id=scan_id,
+            matches=matches,
+            top_match=top_match,
+            processing_ms=int((time.monotonic() - started) * 1000),
+            embedding_segments=query_segments,
+            embedding_version=settings.video_embedding_version,
+            embedding_model=settings.gemini_video_embedding_model,
+            embedding_dimension=len(query_segments[0]["embedding"]),
+        )
+    except Exception as exc:
+        logger.exception("Failed to complete scan %s", scan_id)
+        mark_scan_failed(
+            scan_id,
+            str(exc) or type(exc).__name__,
+            processing_ms=int((time.monotonic() - started) * 1000),
+        )
+
+
+@router.post("/api/scan", status_code=status.HTTP_202_ACCEPTED)
+async def scan_video(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+):
+    """Upload a suspicious video and queue its expensive comparison."""
 
     started = time.monotonic()
     try:
@@ -102,32 +145,31 @@ async def scan_video(file: UploadFile = File(...)):
         # leave a suspicious object behind.
         build_segment_index()
         suspicious_uri = upload_file(temp_path, destination, content_type)
-        matches, top_match = await asyncio.to_thread(
-            _evaluate_content,
-            suspicious_uri,
-            duration_seconds=duration_seconds,
-            content_type=content_type,
-        )
-        processing_ms = int((time.monotonic() - started) * 1000)
-        scanned_at = save_scan(
+        scanned_at = save_pending_scan(
             scan_id=scan_id,
             suspicious_clip_id=suspicious_clip_id,
             suspicious_gcs_uri=suspicious_uri,
             source_filename=filename,
             content_type=content_type,
             suspicious_duration_seconds=duration_seconds,
-            matches=matches,
-            top_match=top_match,
-            processing_ms=processing_ms,
+        )
+        background_tasks.add_task(
+            _scan_in_background,
+            scan_id=scan_id,
+            suspicious_uri=suspicious_uri,
+            duration_seconds=duration_seconds,
+            content_type=content_type,
+            started=started,
         )
         persisted = True
         return {
             "scan_id": scan_id,
             "suspicious_clip_id": suspicious_clip_id,
             "scanned_at": scanned_at.isoformat(),
-            "matches": matches,
-            "top_match": top_match,
-            "processing_ms": processing_ms,
+            "status": "processing",
+            "matches": [],
+            "top_match": None,
+            "processing_ms": 0,
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
