@@ -66,20 +66,6 @@ def delete_gcs_uri(gcs_uri: str) -> None:
     client.bucket(bucket_name).blob(blob_name).delete()
 
 
-def blob_for_gcs_uri(gcs_uri: str):
-    """Return a private Storage blob for an existing ``gs://`` URI."""
-
-    if not gcs_uri.startswith("gs://"):
-        raise ValueError("A stored gs:// URI is required")
-    bucket_name, _, blob_name = gcs_uri.removeprefix("gs://").partition("/")
-    if not bucket_name or not blob_name:
-        raise ValueError("The stored URI is invalid")
-
-    settings = get_settings()
-    client = storage.Client(project=settings.gcp_project_id)
-    return client.bucket(bucket_name).blob(blob_name)
-
-
 def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str | None:
     """Create a short-lived browser URL for a private GCS video when possible."""
 
