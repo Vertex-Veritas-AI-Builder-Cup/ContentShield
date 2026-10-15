@@ -16,7 +16,7 @@ class VideoEmbeddingConcurrencyTests(unittest.TestCase):
         settings = SimpleNamespace(
             gemini_video_embedding_model="video-model",
             gemini_embedding_location="global",
-            video_embedding_version="video_segment_v1",
+            video_embedding_version="video_frame_sample_v3",
             video_segment_seconds=5,
             video_embedding_concurrency=2,
         )
@@ -47,14 +47,11 @@ class VideoEmbeddingConcurrencyTests(unittest.TestCase):
                 mime_type="video/mp4",
             )
 
-        self.assertEqual(
-            [item["segment_id"] for item in result],
-            ["segment_000", "segment_001", "segment_002"],
-        )
-        self.assertEqual(
-            [item["embedding"] for item in result],
-            [[0.0], [1.0], [2.0]],
-        )
+        self.assertEqual(len(result), 10)
+        self.assertEqual(result[0]["segment_id"], "segment_000")
+        self.assertEqual(result[-1]["segment_id"], "segment_009")
+        self.assertEqual(result[0]["embedding"], [0.0])
+        self.assertEqual(result[-1]["embedding"], [9.0])
         self.assertGreater(maximum_active, 1)
         self.assertLessEqual(maximum_active, 2)
 

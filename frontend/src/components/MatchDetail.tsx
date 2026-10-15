@@ -147,6 +147,22 @@ export function MatchDetail({
     );
   }
 
+  if (detail.status === "processing") {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-white/10 bg-[#181816] px-6 text-center text-sm text-[#9b958c]">
+        The video is uploaded. Content comparison is running in the background…
+      </div>
+    );
+  }
+
+  if (detail.status === "failed") {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#e36a6a]/30 bg-[#181816] px-6 text-center text-sm text-[#e36a6a]">
+        Content comparison failed{detail.processing_error ? `: ${detail.processing_error}` : "."}
+      </div>
+    );
+  }
+
   const evidence = explanation?.evidence ?? [];
   // Same evidence, split so each video panel shows its own times.
   const suspiciousRanges = evidence.map(

@@ -9,9 +9,14 @@ const badge: Record<ScanMatch["verdict"], { label: string; className: string }> 
   low_risk: { label: "Low risk", className: "text-[#c8e6c4]" },
 };
 
-// Show 0.92 as a score. Do not turn it into a probability.
+// Support both current 0-1 scores and legacy scores already stored as 0-100.
 function score(value: number) {
-  return value.toFixed(2);
+  const percent = value >= 0 && value <= 1 ? value * 100 : value;
+  return `${Math.round(percent)}%`;
+}
+
+function coverage(value: number) {
+  return `${Math.round(value * 100)}%`;
 }
 
 /** Show the content similarity results. */
@@ -42,13 +47,13 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
               <p className="mt-2 text-5xl font-medium tracking-tight">
                 {score(top.content_similarity)}
               </p>
-              <p className="mt-2 text-sm text-[#9b958c]">Similarity score, not a probability.</p>
+              <p className="mt-2 text-sm text-[#9b958c]">Calibrated similarity score, shown as a percentage.</p>
               <p className="mt-2 text-sm text-[#f4f1ea]">
                 {top.protected_title || top.protected_clip_id}
               </p>
               <p className="mt-3 text-xs text-[#6f6a62]">
                 {typeof top.segment_coverage === "number"
-                  ? `Segment coverage ${score(top.segment_coverage)}`
+                  ? `Segment coverage ${coverage(top.segment_coverage)}`
                   : "Segment coverage unavailable"}
                 {typeof top.matched_segment_count === "number"
                   ? ` · ${top.matched_segment_count} matched segments`
