@@ -67,8 +67,9 @@ function VideoPanel({
       )}
       {ranges.length > 0 ? (
         <ul className="mt-2 text-xs text-[#9b958c]">
-          {ranges.map((item) => (
-            <li key={item}>{item}</li>
+          {/* Two matched segments can have the same label; the index keeps keys unique. */}
+          {ranges.map((item, index) => (
+            <li key={`${item}-${index}`}>{item}</li>
           ))}
         </ul>
       ) : (
@@ -90,16 +91,27 @@ export function MatchDetail({
   suspiciousTitle: string | null;
   onPromoted?: () => void;
 }) {
+  const selectedMatch = detail?.selected_match ?? detail?.top_match ?? null;
+  const hasSelectedMatch = detail?.selected_match_id != null;
+  const reviewingOtherMatch = Boolean(
+    selectedMatch && selectedMatch.protected_clip_id !== detail?.top_match?.protected_clip_id,
+  );
   // Start from anything already saved on the scan. The assessment loads automatically.
   const [explanation, setExplanation] = useState<VerdictExplanation | null>(
-    detail?.verdict_explanation ?? null,
+    hasSelectedMatch
+      ? detail?.selected_verdict_explanation ?? null
+      : detail?.verdict_explanation ?? null,
   );
-  const [draft, setDraft] = useState<DmcaDraft | null>(detail?.dmca_draft ?? null);
+  const [draft, setDraft] = useState<DmcaDraft | null>(
+    hasSelectedMatch ? detail?.selected_dmca_draft ?? null : detail?.dmca_draft ?? null,
+  );
   const [explaining, setExplaining] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [draftExpanded, setDraftExpanded] = useState(true);
+  // Persisted drafts start collapsed when a match is opened; the user can expand
+  // that match's draft explicitly, while a newly generated draft opens once.
+  const [draftExpanded, setDraftExpanded] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [promotionError, setPromotionError] = useState<string | null>(null);
   const [promotedClipId, setPromotedClipId] = useState<string | null>(
@@ -118,8 +130,9 @@ export function MatchDetail({
 
   // Generate and persist the evidence summary as soon as a matched scan is opened.
   useEffect(() => {
-    if (!detail?.top_match || explanation) return;
+    if (!detail || !selectedMatch || explanation) return;
     const scanId = detail.scan_id;
+    const matchId = selectedMatch.protected_clip_id;
     let cancelled = false;
 
     async function loadExplanation() {
@@ -129,7 +142,7 @@ export function MatchDetail({
         const res = await fetch(`${apiBase()}/api/scans/${scanId}/explain-verdict`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: "{}",
+          body: JSON.stringify({ protected_clip_id: matchId }),
         });
         if (!res.ok) throw new Error(await errorMessage(res, "Could not prepare the assessment."));
         const json = (await res.json()) as { verdict_explanation: VerdictExplanation };
@@ -147,7 +160,7 @@ export function MatchDetail({
     return () => {
       cancelled = true;
     };
-  }, [detail?.scan_id, detail?.top_match, explanation]);
+  }, [detail, selectedMatch, explanation]);
 
   if (!detail) {
     return (
@@ -186,10 +199,10 @@ export function MatchDetail({
     suspiciousUrl || detail.media?.suspicious_video_url || detail.suspicious_video_url || null;
   const originalSrc = detail.media?.protected_video_url || detail.protected_video_url || null;
   const canMoveToOriginals = !detail.top_match || detail.top_match.verdict === "low_risk";
-  const contentScore = detail.top_match
-    ? detail.top_match.content_similarity <= 1
-      ? detail.top_match.content_similarity * 100
-      : detail.top_match.content_similarity
+  const contentScore = selectedMatch
+    ? selectedMatch.content_similarity <= 1
+      ? selectedMatch.content_similarity * 100
+      : selectedMatch.content_similarity
     : null;
 
   // Send only the fields the user filled in, then show the returned draft.
@@ -209,7 +222,10 @@ export function MatchDetail({
       const res = await fetch(`${apiBase()}/api/scans/${detail!.scan_id}/dmca`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          protected_clip_id: selectedMatch?.protected_clip_id ?? "",
+        }),
       });
       if (!res.ok) {
         throw new Error(await errorMessage(res, "Could not draft that notice."));
@@ -273,6 +289,22 @@ export function MatchDetail({
   }
   return (
     <div>
+      {reviewingOtherMatch && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f0b429]/25 bg-[#f0b429]/[0.06] px-4 py-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[#f0b429]">Selected review</p>
+            <p className="mt-1 text-sm text-[#d4d0c8]">
+              Reviewing {selectedMatch?.protected_title || "this original"}
+            </p>
+          </div>
+          <a
+            href={`/monitor?scan=${encodeURIComponent(detail.scan_id)}`}
+            className="shrink-0 rounded-full border border-white/20 px-3.5 py-2 text-xs font-medium text-[#f4f1ea] transition-colors hover:border-[#f0b429] hover:text-[#f0b429]"
+          >
+            ← Back to reviews
+          </a>
+        </div>
+      )}
       <MatchResults result={detail} />
 
 
@@ -282,7 +314,7 @@ export function MatchDetail({
           <h2 className="mt-1 text-xl font-medium tracking-tight">Compare matching moments</h2>
           <p className="mt-1 text-sm text-[#9b958c]">Review the checked video, the original, and the evidence behind this score.</p>
         </div>
-        {detail.top_match && (
+        {selectedMatch && (
           <p className="text-sm text-[#9b958c]">
             Score <span className="ml-1 text-lg font-medium text-[#f4f1ea]">{contentScore?.toFixed(0)}%</span>
           </p>
@@ -300,7 +332,7 @@ export function MatchDetail({
         />
         <VideoPanel
           label="Original"
-          title={detail.top_match?.protected_title || detail.top_match?.protected_clip_id || "No original"}
+          title={selectedMatch?.protected_title || selectedMatch?.protected_clip_id || "No original"}
           src={originalSrc}
           ranges={originalRanges}
         />
@@ -315,7 +347,7 @@ export function MatchDetail({
         {explainError && <p className="mt-3 text-sm text-[#f0b429]">{explainError}</p>}
         {!explanation && !explaining && !explainError && (
           <p className="mt-3 text-sm text-[#9b958c]">
-            {detail.top_match
+            {selectedMatch
               ? "Preparing the evidence summary…"
               : "No close original was found to assess."}
           </p>
@@ -351,9 +383,9 @@ export function MatchDetail({
         </div>
         {evidence.length > 0 ? (
           <ul className="mt-3 grid gap-3">
-            {evidence.map((item: EvidenceItem) => (
+            {evidence.map((item: EvidenceItem, index) => (
               <li
-                key={`${item.query_start_seconds}-${item.protected_start_seconds}-${item.observation}`}
+                key={`${item.query_start_seconds}-${item.protected_start_seconds}-${item.observation}-${index}`}
                 className="rounded-xl border border-white/10 bg-[#10100e] p-4 sm:p-5"
               >
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -446,7 +478,7 @@ export function MatchDetail({
           />
           <button
             type="submit"
-            disabled={!detail.top_match || !explanation || drafting}
+            disabled={!selectedMatch || !explanation || drafting}
             className="w-fit rounded-full border border-white/15 px-4 py-2 text-sm text-[#f4f1ea] disabled:opacity-40"
           >
             {drafting ? "Writing…" : "Generate DMCA draft"}

@@ -73,6 +73,11 @@ export type ScanDetail = {
   processing_ms?: number;
   verdict_explanation?: VerdictExplanation | null;
   dmca_draft?: DmcaDraft | null;
+  // Selected-match fields are populated when a scan is opened with match_id.
+  selected_match?: ScanMatch | null;
+  selected_match_id?: string | null;
+  selected_verdict_explanation?: VerdictExplanation | null;
+  selected_dmca_draft?: DmcaDraft | null;
   promoted_clip_id?: string | null;
   promoted_title?: string | null;
   promoted_at?: string | null;
