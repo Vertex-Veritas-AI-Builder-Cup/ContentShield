@@ -56,6 +56,18 @@ class DmcaDraftTests(unittest.TestCase):
         with self.assertRaises(DmcaDraftError):
             generate_dmca_draft(scan={"top_match": None}, verdict_explanation={"explanation": "No match."})
 
+    def test_selected_match_can_drive_a_draft_without_being_top_match(self) -> None:
+        """Use the reviewed original's title and score when another match is selected."""
+
+        draft = generate_dmca_draft(
+            scan={"top_match": {"protected_title": "Top original", "content_similarity": 0.95}},
+            match={"protected_title": "Other original", "content_similarity": 0.72},
+            verdict_explanation={"explanation": "The same scene is visible."},
+        )
+
+        self.assertIn("Other original", draft["subject"])
+        self.assertIn("Similarity score: 0.720", draft["body"])
+
 
 if __name__ == "__main__":
     unittest.main()

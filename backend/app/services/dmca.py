@@ -29,6 +29,7 @@ def generate_dmca_draft(
     *,
     scan: dict[str, Any],
     verdict_explanation: dict[str, Any],
+    match: dict[str, Any] | None = None,
     creator_name: str = "",
     creator_email: str = "",
     platform: str = "",
@@ -39,17 +40,17 @@ def generate_dmca_draft(
 ) -> dict[str, Any]:
     """Build a factual draft from stored verdict evidence without inventing legal facts."""
 
-    top_match = scan.get("top_match") or {}
-    if not top_match:
-        raise DmcaDraftError("A scan must have a top match before a draft can be created")
+    selected_match = match or scan.get("top_match") or {}
+    if not selected_match:
+        raise DmcaDraftError("A scan must have a match before a draft can be created")
     if not verdict_explanation.get("explanation"):
         raise DmcaDraftError(
             "A verdict explanation is required before a draft can be created"
         )
 
-    title = _text(top_match.get("protected_title"), "Protected original")
+    title = _text(selected_match.get("protected_title"), "Protected original")
     decision = _text(verdict_explanation.get("decision"), "uncertain")
-    similarity = float(top_match.get("content_similarity") or 0.0)
+    similarity = float(selected_match.get("content_similarity") or 0.0)
     evidence_lines = []
     for item in verdict_explanation.get("evidence") or []:
         evidence_lines.append(

@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 from pathlib import Path
 
+import google.auth
 from google.auth.transport import requests as google_auth_requests
 from google.cloud import storage
 
 from app.config import get_settings
+
+
+logger = logging.getLogger(__name__)
+_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 
 
 def upload_file(local_path: Path, destination: str, content_type: str) -> str:
@@ -81,9 +87,9 @@ def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str |
         minutes = settings.signed_url_minutes if minutes is None else minutes
         if minutes <= 0:
             return None
-        client = storage.Client(project=settings.gcp_project_id)
+        credentials, _ = google.auth.default(scopes=[_CLOUD_PLATFORM_SCOPE])
+        client = storage.Client(project=settings.gcp_project_id, credentials=credentials)
         blob = client.bucket(bucket_name).blob(blob_name)
-        credentials = client._credentials
         request = google_auth_requests.Request()
 
         # Cloud Run uses metadata credentials, which do not contain a private
@@ -108,5 +114,6 @@ def signed_url_for_gcs_uri(gcs_uri: str, *, minutes: int | None = None) -> str |
             access_token=access_token,
         )
     except Exception:
+        logger.exception("Failed to create a signed Storage URL")
         return None
 

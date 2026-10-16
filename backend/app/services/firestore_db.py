@@ -355,6 +355,7 @@ def get_scan(scan_id: str) -> dict | None:
         "scanned_at": _as_iso(data.get("scanned_at")),
         "verdict_explanation": data.get("verdict_explanation"),
         "dmca_draft": data.get("dmca_draft"),
+        "match_reviews": data.get("match_reviews") or {},
         "promoted_clip_id": data.get("promoted_clip_id") or "",
         "promoted_title": data.get("promoted_title") or "",
         "promoted_at": _as_iso(data.get("promoted_at")) if data.get("promoted_at") else "",
@@ -537,6 +538,19 @@ def save_verdict_explanation(scan_id: str, explanation: dict) -> None:
     )
 
 
+def save_match_verdict_explanation(
+    scan_id: str, protected_clip_id: str, explanation: dict
+) -> None:
+    """Persist an explanation for one selected protected clip on a scan."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    db.collection("scans").document(scan_id).update(
+        {f"match_reviews.{protected_clip_id}.verdict_explanation": explanation}
+    )
+
+
 def save_dmca_draft(scan_id: str, draft: dict) -> None:
     """Attach one generated DMCA draft to an existing scan document."""
 
@@ -544,6 +558,17 @@ def save_dmca_draft(scan_id: str, draft: dict) -> None:
 
     db = firestore.Client(project=get_settings().gcp_project_id)
     db.collection("scans").document(scan_id).update({"dmca_draft": draft})
+
+
+def save_match_dmca_draft(scan_id: str, protected_clip_id: str, draft: dict) -> None:
+    """Persist a DMCA draft for one selected protected clip on a scan."""
+
+    from google.cloud import firestore
+
+    db = firestore.Client(project=get_settings().gcp_project_id)
+    db.collection("scans").document(scan_id).update(
+        {f"match_reviews.{protected_clip_id}.dmca_draft": draft}
+    )
 
 
 def save_scan_promotion(
