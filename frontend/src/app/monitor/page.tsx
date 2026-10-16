@@ -9,6 +9,7 @@ import { ScanDetail, apiBase, errorMessage } from "@/components/scanTypes";
 /** Render suspicious-video upload, match detail, and scan history. */
 export default function CheckPage() {
   const [detail, setDetail] = useState<ScanDetail | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   // Local preview of the file just checked. Past checks do not have this.
   const [suspiciousUrl, setSuspiciousUrl] = useState<string | null>(null);
   const [suspiciousTitle, setSuspiciousTitle] = useState<string | null>(null);
@@ -32,7 +33,10 @@ export default function CheckPage() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(`${apiBase()}/api/scans/${encodeURIComponent(scanId)}`);
+        const query = selectedMatchId
+          ? `?match_id=${encodeURIComponent(selectedMatchId)}`
+          : "";
+        const res = await fetch(`${apiBase()}/api/scans/${encodeURIComponent(scanId)}${query}`);
         if (res.ok && !cancelled) setDetail((await res.json()) as ScanDetail);
       } catch {
         // Keep the processing state visible; the next poll can recover.
@@ -43,15 +47,21 @@ export default function CheckPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [detail?.scan_id, detail?.status]);
+  }, [detail?.scan_id, detail?.status, selectedMatchId]);
 
   // Load one scan. Keep the just-finished result if the detail route is not ready yet.
-  async function openScan(scanId: string, fallback?: ScanDetail) {
+  async function openScan(scanId: string, fallback?: ScanDetail, matchId?: string) {
     setOpening(true);
     setDetailError(null);
+    setSelectedMatchId(matchId ?? null);
+    // Keep the scan context in the URL so browser Back can restore this review.
+    const query = new URLSearchParams({ scan: scanId });
+    if (matchId) query.set("match", matchId);
+    window.history.replaceState(null, "", `/monitor?${query.toString()}`);
     if (fallback) setDetail(fallback);
     try {
-      const res = await fetch(`${apiBase()}/api/scans/${encodeURIComponent(scanId)}`);
+      const apiQuery = matchId ? `?match_id=${encodeURIComponent(matchId)}` : "";
+      const res = await fetch(`${apiBase()}/api/scans/${encodeURIComponent(scanId)}${apiQuery}`);
       if (res.ok) {
         setDetail((await res.json()) as ScanDetail);
         return;
@@ -67,6 +77,18 @@ export default function CheckPage() {
     }
   }
 
+  // Deep links from an "other match" row reopen the scan focused on that match.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const scanId = params.get("scan");
+    if (scanId) {
+      const timer = window.setTimeout(() => {
+        void openScan(scanId, undefined, params.get("match") || undefined);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+
   return (
     <div className="pt-2">
       <h1 className="text-2xl font-medium tracking-tight">Check</h1>
@@ -77,6 +99,7 @@ export default function CheckPage() {
             const nextUrl = URL.createObjectURL(file);
             setSuspiciousUrl(nextUrl);
             setSuspiciousTitle(file.name);
+            setSelectedMatchId(null);
             setRefreshKey((value) => value + 1);
             void openScan(scan.scan_id, scan);
           }}
@@ -87,12 +110,12 @@ export default function CheckPage() {
         {detailError && <p className="mb-3 text-sm text-[#f0b429]">{detailError}</p>}
         {/* New key resets the detail form when a different scan is opened. */}
         <MatchDetail
-          key={`${detail?.scan_id ?? "empty"}-${detail?.verdict_explanation?.verdict_explanation_id ?? ""}-${detail?.dmca_draft?.draft_id ?? ""}`}
+          key={`${detail?.scan_id ?? "empty"}-${detail?.selected_match_id ?? "top"}-${detail?.selected_verdict_explanation?.verdict_explanation_id ?? detail?.verdict_explanation?.verdict_explanation_id ?? ""}-${detail?.selected_dmca_draft?.draft_id ?? detail?.dmca_draft?.draft_id ?? ""}`}
           detail={detail}
           suspiciousUrl={suspiciousUrl}
           suspiciousTitle={suspiciousTitle}
           onPromoted={() => {
-            if (detail) void openScan(detail.scan_id);
+            if (detail) void openScan(detail.scan_id, undefined, selectedMatchId ?? undefined);
           }}
         />
       </div>
@@ -101,6 +124,7 @@ export default function CheckPage() {
         onOpen={(scanId) => {
           setSuspiciousUrl(null);
           setSuspiciousTitle(null);
+          setSelectedMatchId(null);
           void openScan(scanId);
         }}
       />

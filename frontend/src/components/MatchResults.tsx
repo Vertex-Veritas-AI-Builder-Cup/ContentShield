@@ -29,11 +29,15 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
     );
   }
 
-  const top = result.top_match;
+  const top = result.selected_match ?? result.top_match;
   return (
     <div>
       <section className="rounded-2xl border border-white/10 bg-[#181816] px-5 py-6 sm:px-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-[#9b958c]">Content match</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-[#9b958c]">
+            {result.selected_match && result.selected_match.protected_clip_id !== result.top_match?.protected_clip_id
+              ? "Selected content match"
+              : "Content match"}
+          </p>
           {top ? (
             <>
               <p className={`mt-4 text-xs ${badge[top.verdict]?.className ?? "text-[#9b958c]"}`}>
@@ -68,8 +72,9 @@ export function MatchResults({ result }: { result: ScanDetail | null }) {
 
 /** Show lower-ranked content candidates after the primary review workflow. */
 export function OtherContentMatches({ result }: { result: ScanDetail }) {
+  const selectedId = result.selected_match?.protected_clip_id ?? result.top_match?.protected_clip_id;
   const matches = [...(result.matches ?? [])]
-    .filter((match) => match.protected_clip_id !== result.top_match?.protected_clip_id)
+    .filter((match) => match.protected_clip_id !== selectedId)
     .sort((a, b) => b.content_similarity - a.content_similarity);
 
   if (matches.length === 0) return null;
@@ -77,19 +82,28 @@ export function OtherContentMatches({ result }: { result: ScanDetail }) {
   return (
     <section className="mt-8 rounded-2xl border border-white/10 bg-[#181816] p-5 sm:p-6">
       <h2 className="text-sm font-medium">Other content matches</h2>
-      <p className="mt-1 text-xs text-[#6f6a62]">Lower-ranked originals from this check</p>
+      <p className="mt-1 text-xs text-[#6f6a62]">Other originals from this check</p>
       <ul className="mt-4">
         {matches.map((match) => (
           <li
             key={match.protected_clip_id}
-            className="flex items-center justify-between gap-3 border-t border-white/10 py-3 text-sm first:border-t-0 first:pt-0"
+            className="border-t border-white/10 first:border-t-0 first:pt-0"
           >
-            <span className="min-w-0 truncate">
-              {match.protected_title || match.protected_clip_id}
-            </span>
-            <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
-              {score(match.content_similarity)}
-            </span>
+            {/* Use a deep link so a selected match can be refreshed or shared safely. */}
+            <a
+              href={`/monitor?scan=${encodeURIComponent(result.scan_id)}&match=${encodeURIComponent(match.protected_clip_id)}`}
+              className="flex items-center justify-between gap-3 py-3 text-sm transition-colors hover:text-[#f0b429]"
+            >
+              <span className="min-w-0 truncate">
+                {match.protected_title || match.protected_clip_id}
+              </span>
+              <span className="flex shrink-0 items-center gap-3">
+                <span className={badge[match.verdict]?.className ?? "text-[#9b958c]"}>
+                  {score(match.content_similarity)}
+                </span>
+                <span className="text-xs text-[#6f6a62]">Review match →</span>
+              </span>
+            </a>
           </li>
         ))}
       </ul>
