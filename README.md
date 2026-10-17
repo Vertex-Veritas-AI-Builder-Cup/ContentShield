@@ -16,7 +16,7 @@ moments, an explanation, and next steps in one place.
 Maya runs a small media business. She is tired of seeing her video
 ideas and distinctive style copied across other accounts, but reviewing every new upload by hand is impossible. She wishes the platform could check new videos for her before a copied version spreads.
 
-Her platform saves her video as an original and checks other creator's uploads against her current videos. Maya's / platform's review team sees the matching moments in all matching videos, an explanation of why they were matched, and any limitations of the assessment. They can review the matches and prepare a takedown notice draft (DMCA) for the selected original.
+Her platform saves her video as an original and checks other creator's uploads against her current videos. Maya's platform's review team sees the matching moments in all matching videos, an explanation of why they were matched, and any limitations of the assessment. They can review the matches and prepare a takedown notice draft (DMCA) for the selected original.
 
 ## The problem we're solving
 
